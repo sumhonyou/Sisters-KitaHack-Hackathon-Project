@@ -1,1 +1,29 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"cityguard-d1890","appId":"1:256138182684:android:15b4d8bfae2265c5f51fd9","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"cityguard-d1890","configurations":{"android":"1:256138182684:android:15b4d8bfae2265c5f51fd9","ios":"1:256138182684:ios:6ff9a9eaa7d45cd0f51fd9","macos":"1:256138182684:ios:6ff9a9eaa7d45cd0f51fd9","web":"1:256138182684:web:c585da91389ca5b7f51fd9","windows":"1:256138182684:web:c2928d45f492c99df51fd9"}}}}}}
+{
+    "firestore": {
+        "rules": "firestore.rules",
+        "indexes": "firestore.indexes.json"
+    },
+    "flutter": {
+        "platforms": {
+            "android": {
+                "default": {
+                    "projectId": "cityguard-d1890",
+                    "appId": "1:256138182684:android:15b4d8bfae2265c5f51fd9",
+                    "fileOutput": "android/app/google-services.json"
+                }
+            },
+            "dart": {
+                "lib/firebase_options.dart": {
+                    "projectId": "cityguard-d1890",
+                    "configurations": {
+                        "android": "1:256138182684:android:15b4d8bfae2265c5f51fd9",
+                        "ios": "1:256138182684:ios:6ff9a9eaa7d45cd0f51fd9",
+                        "macos": "1:256138182684:ios:6ff9a9eaa7d45cd0f51fd9",
+                        "web": "1:256138182684:web:c585da91389ca5b7f51fd9",
+                        "windows": "1:256138182684:web:c2928d45f492c99df51fd9"
+                    }
+                }
+            }
+        }
+    }
+}
