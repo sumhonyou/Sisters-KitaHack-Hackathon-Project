@@ -3,6 +3,7 @@ import 'package:kitahack/services/auth_service.dart';
 import 'package:kitahack/services/sos_service.dart';
 import 'package:kitahack/screens/login_screen.dart';
 import 'package:kitahack/screens/sos_screen.dart';
+import 'package:kitahack/screens/report_category_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -294,7 +295,63 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           style: TextStyle(fontSize: 16, color: Colors.black54),
         ),
       ),
-      floatingActionButton: _buildSosButton(),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(left: 32),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // ── Report button ────────────────────────────────────────
+            GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ReportCategoryScreen()),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF4A90E2), Color(0xFF1A5CC8)],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(
+                            0xFF4A90E2,
+                          ).withValues(alpha: 0.45),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.article_outlined,
+                      color: Colors.white,
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Report',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // ── SOS button ───────────────────────────────────────────
+            _buildSosButton(),
+          ],
+        ),
+      ),
     );
   }
 }
