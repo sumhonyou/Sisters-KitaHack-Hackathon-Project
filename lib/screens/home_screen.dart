@@ -4,6 +4,7 @@ import 'package:kitahack/services/sos_service.dart';
 import 'package:kitahack/screens/login_screen.dart';
 import 'package:kitahack/screens/sos_screen.dart';
 import 'package:kitahack/screens/report_category_screen.dart';
+import 'package:kitahack/screens/incident_dashboard_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -276,6 +277,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         backgroundColor: const Color(0xFF2575FC),
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.bar_chart_rounded),
+            tooltip: 'Incident Dashboard',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const IncidentDashboardScreen(),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {

@@ -45,10 +45,11 @@ class ReportService {
   /// Returns the generated caseId.
   Future<String> submitReport({
     required String category,
-    required String checkIn, // safe | need_assistance | trapped
+    required String checkIn,
     required double? lat,
     required double? lng,
     required int severity,
+    required int peopleAffected,
     required String description,
     required List<File> mediaFiles,
   }) async {
@@ -76,6 +77,7 @@ class ReportService {
       'location': (lat != null && lng != null) ? GeoPoint(lat, lng) : null,
       'areaId': areaId,
       'severity': severity,
+      'peopleAffected': peopleAffected,
       'timestamp': FieldValue.serverTimestamp(),
       'description': description,
       'status': 'pending',

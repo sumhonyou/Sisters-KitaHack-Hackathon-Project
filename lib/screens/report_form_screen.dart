@@ -25,6 +25,7 @@ class ReportFormScreen extends StatefulWidget {
 class _ReportFormScreenState extends State<ReportFormScreen> {
   final ReportService _service = ReportService();
   final _descController = TextEditingController();
+  final _peopleController = TextEditingController();
   final _picker = ImagePicker();
 
   // Form state
@@ -39,6 +40,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   final Map<String, String?> _errors = {
     'checkIn': null,
     'severity': null,
+    'people': null,
     'description': null,
     'photo': null,
   };
@@ -52,6 +54,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   @override
   void dispose() {
     _descController.dispose();
+    _peopleController.dispose();
     super.dispose();
   }
 
@@ -84,10 +87,17 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   }
 
   bool _validate() {
+    final peopleText = _peopleController.text.trim();
+    final peopleNum = int.tryParse(peopleText);
     final errs = <String, String?>{
       'checkIn': _checkIn == null ? 'Please select your check-in status' : null,
       'severity': _severity == null
           ? 'Please drag to set a severity level'
+          : null,
+      'people': peopleText.isEmpty
+          ? 'Please enter the number of people affected'
+          : (peopleNum == null || peopleNum < 0)
+          ? 'Must be a valid number (0 or more)'
           : null,
       'description': _descController.text.trim().isEmpty
           ? 'Please describe what you are observing'
@@ -110,6 +120,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
         lat: _position?.latitude,
         lng: _position?.longitude,
         severity: _severity!,
+        peopleAffected: int.parse(_peopleController.text.trim()),
         description: _descController.text.trim(),
         mediaFiles: _mediaFiles,
       );
@@ -426,8 +437,39 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
             ),
             const SizedBox(height: 14),
 
+            // ── People Affected ───────────────────────────────────────────
+            _sectionLabel('People Affected', errorKey: 'people'),
+            _card(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: TextField(
+                controller: _peopleController,
+                keyboardType: TextInputType.number,
+                onChanged: (_) {
+                  if (_errors['people'] != null) {
+                    setState(() => _errors['people'] = null);
+                  }
+                },
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  hintText: 'e.g. 10',
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 13,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.people_outline,
+                    color: Colors.grey.shade400,
+                    size: 20,
+                  ),
+                ),
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+            const SizedBox(height: 14),
+
             // ── Media ─────────────────────────────────────────────────────
             _sectionLabel('Add Photo', errorKey: 'photo'),
+
             _card(
               child: Column(
                 children: [
@@ -541,7 +583,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                       ),
                     )
                   : const Text(
-                      'Submit Report',
+                      'Submit',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
