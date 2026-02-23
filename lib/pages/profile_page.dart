@@ -1175,7 +1175,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               const Spacer(),
-              if (trailing != null) trailing,
+              ?trailing,
             ],
           ),
           const SizedBox(height: 12),

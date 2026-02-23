@@ -52,6 +52,13 @@ class AuthService {
       }
 
       return result;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use') {
+        throw 'The email address is already in use by another account. '
+            'If you already signed up, please try logging in instead. '
+            'Note: Deleting Firestore records does not delete your login account.';
+      }
+      rethrow;
     } catch (e) {
       rethrow;
     }

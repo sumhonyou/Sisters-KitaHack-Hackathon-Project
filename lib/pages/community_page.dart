@@ -73,10 +73,11 @@ class _CommunityPageState extends State<CommunityPage>
   // ─── Build Post Card (matching Figma) ────────────────────────────────────────
   Widget _buildPostCard(CommunityPost post) {
     final avatarColor = _hexColor(post.authorAvatarColor);
-    final initials = post.authorName.isNotEmpty
+    final initials = post.authorName.trim().isNotEmpty
         ? post.authorName
               .trim()
               .split(' ')
+              .where((w) => w.isNotEmpty)
               .take(2)
               .map((w) => w[0].toUpperCase())
               .join()
@@ -447,10 +448,11 @@ class _CommunityPageState extends State<CommunityPage>
 
   Widget _buildCommentTile(CommunityComment c) {
     final color = _hexColor(c.authorAvatarColor);
-    final initials = c.authorName.isNotEmpty
+    final initials = c.authorName.trim().isNotEmpty
         ? c.authorName
               .trim()
               .split(' ')
+              .where((w) => w.isNotEmpty)
               .take(2)
               .map((w) => w[0].toUpperCase())
               .join()
