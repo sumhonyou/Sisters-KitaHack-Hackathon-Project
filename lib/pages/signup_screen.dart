@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:kitahack/services/auth_service.dart';
-import 'package:kitahack/screens/home_screen.dart';
+import 'package:kitahack/pages/main_shell.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -71,7 +71,7 @@ class _SignupScreenState extends State<SignupScreen> {
         // 3. Navigate to Home
         if (mounted) {
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
+            MaterialPageRoute(builder: (context) => const MainShell()),
           );
         }
       } catch (e) {

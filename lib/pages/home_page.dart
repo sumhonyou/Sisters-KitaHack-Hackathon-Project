@@ -1,0 +1,1790 @@
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../models/disaster_model.dart';
+import '../models/shelter_model.dart';
+import '../services/firestore_service.dart';
+import 'profile_page.dart';
+
+class HomePage extends StatefulWidget {
+  final VoidCallback? onNavigateToMap;
+  const HomePage({super.key, this.onNavigateToMap});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final PageController _pageCtrl = PageController(
+    viewportFraction: 0.88,
+    initialPage: 0,
+  );
+  int _currentAlertPage = 0;
+  bool _isSafe = false;
+  final FirestoreService _fs = FirestoreService();
+
+  // ── Country selector ──────────────────────────────────────────────────────
+  String _selectedCountry = 'Malaysia';
+  static const List<Map<String, String>> _countries = [
+    {'name': 'Malaysia', 'flag': '\u{1F1F2}\u{1F1FE}'},
+    {'name': 'Singapore', 'flag': '\u{1F1F8}\u{1F1EC}'},
+    {'name': 'Indonesia', 'flag': '\u{1F1EE}\u{1F1E9}'},
+    {'name': 'Thailand', 'flag': '\u{1F1F9}\u{1F1ED}'},
+    {'name': 'Philippines', 'flag': '\u{1F1F5}\u{1F1ED}'},
+    {'name': 'Vietnam', 'flag': '\u{1F1FB}\u{1F1F3}'},
+    {'name': 'Myanmar', 'flag': '\u{1F1F2}\u{1F1F2}'},
+    {'name': 'Cambodia', 'flag': '\u{1F1F0}\u{1F1ED}'},
+    {'name': 'Brunei', 'flag': '\u{1F1E7}\u{1F1F3}'},
+    {'name': 'Laos', 'flag': '\u{1F1F1}\u{1F1E6}'},
+  ];
+
+  // ── Notifications ─────────────────────────────────────────────────────────
+  late final List<Map<String, dynamic>> _notifications = [
+    {
+      'icon': Icons.warning_amber_rounded,
+      'color': const Color(0xFFEF4444),
+      'title': 'Flood Advisory \u2014 Klang Valley',
+      'body':
+          'Water levels rising. Residents in low-lying areas advised to evacuate.',
+      'time': '2 min ago',
+      'read': false,
+    },
+    {
+      'icon': Icons.home_outlined,
+      'color': const Color(0xFF1A56DB),
+      'title': 'Shelter Opened \u2014 Wangsa Maju',
+      'body':
+          'Pusat Komuniti Wangsa Maju is now accepting flood victims. Capacity: 300.',
+      'time': '15 min ago',
+      'read': false,
+    },
+    {
+      'icon': Icons.health_and_safety_outlined,
+      'color': const Color(0xFF22C55E),
+      'title': 'Safety Check-In Reminder',
+      'body':
+          'Let your community know you are safe. Tap "I\'m Safe" on the home screen.',
+      'time': '1 hr ago',
+      'read': false,
+    },
+    {
+      'icon': Icons.directions_car_outlined,
+      'color': const Color(0xFFF59E0B),
+      'title': 'Road Closure \u2014 Jalan Ipoh Underpass',
+      'body':
+          'Underpass fully submerged. Use Jalan Kuching as alternative route.',
+      'time': '2 hr ago',
+      'read': true,
+    },
+    {
+      'icon': Icons.campaign_outlined,
+      'color': const Color(0xFF7C3AED),
+      'title': 'Community Post \u2014 Volunteers Needed',
+      'body': 'Boat rescue at Sg Besi. Meet at Petronas Sg Besi at 4PM.',
+      'time': '3 hr ago',
+      'read': true,
+    },
+    {
+      'icon': Icons.build_outlined,
+      'color': const Color(0xFF0891B2),
+      'title': 'Infrastructure Update',
+      'body':
+          'Pump station on Jalan Pahang now operational. Water receding by 11PM.',
+      'time': '5 hr ago',
+      'read': true,
+    },
+  ];
+
+  // ── Colors ──────────────────────────────────────────────────────────────────
+  static const _blue = Color(0xFF1A56DB);
+  static const _bgGray = Color(0xFFF9FAFB);
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  LinearGradient _disasterGradient(String type) {
+    switch (type.toLowerCase()) {
+      case 'flood':
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1565C0), Color(0xFF0277BD)],
+        );
+      case 'earthquake':
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF4E342E), Color(0xFF6D4C41)],
+        );
+      case 'fire':
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFBF360C), Color(0xFFF4511E)],
+        );
+      case 'storm':
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF263238), Color(0xFF455A64)],
+        );
+      case 'chemical':
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
+        );
+      case 'landslide':
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF5D4037), Color(0xFF795548)],
+        );
+      default:
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFC62828), Color(0xFFE53935)],
+        );
+    }
+  }
+
+  IconData _disasterIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'flood':
+        return Icons.water;
+      case 'earthquake':
+        return Icons.crisis_alert;
+      case 'fire':
+        return Icons.local_fire_department;
+      case 'storm':
+        return Icons.thunderstorm;
+      case 'chemical':
+        return Icons.science;
+      case 'landslide':
+        return Icons.terrain;
+      default:
+        return Icons.warning_amber;
+    }
+  }
+
+  Color _severityColor(String s) {
+    switch (s.toLowerCase()) {
+      case 'critical':
+        return const Color(0xFFEF4444);
+      case 'high':
+        return const Color(0xFFF97316);
+      case 'medium':
+        return const Color(0xFFF59E0B);
+      case 'low':
+        return const Color(0xFF22C55E);
+      default:
+        return const Color(0xFF6B7280);
+    }
+  }
+
+  String _actionLabel(String severity) {
+    switch (severity.toLowerCase()) {
+      case 'critical':
+        return 'Evacuate';
+      case 'high':
+        return 'Stay Alert';
+      case 'medium':
+        return 'Monitor';
+      default:
+        return 'Inform';
+    }
+  }
+
+  String _timeAgo(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
+    if (d.inHours < 24) return '${d.inHours}h ago';
+    return '${d.inDays}d ago';
+  }
+
+  Future<void> _callNumber(String number) async {
+    final uri = Uri(scheme: 'tel', path: number);
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  void _showShelterSheet(BuildContext ctx, List<ShelterModel> shelters) {
+    showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        builder: (_, sc) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Icon(Icons.house, color: Color(0xFF1A56DB)),
+                    SizedBox(width: 8),
+                    Text(
+                      'Nearby Shelters',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: shelters.isEmpty
+                    ? const Center(child: Text('No shelters found'))
+                    : ListView.separated(
+                        controller: sc,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: shelters.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) => _shelterCard(shelters[i]),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _shelterCard(ShelterModel s) {
+    final isFull = s.isFull;
+    final fillPct = s.occupancyRate;
+    Color statusColor = isFull
+        ? const Color(0xFFEF4444)
+        : s.status == 'open'
+        ? const Color(0xFF22C55E)
+        : const Color(0xFF6B7280);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  s.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  isFull ? 'Full' : s.status.toUpperCase(),
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: fillPct,
+              minHeight: 6,
+              backgroundColor: const Color(0xFFE5E7EB),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isFull ? const Color(0xFFEF4444) : const Color(0xFF1A56DB),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Text(
+                '${s.capacityCurrent}/${s.capacityTotal} people',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => _callNumber(s.contactPhone),
+                child: Row(
+                  children: [
+                    const Icon(Icons.phone, size: 12, color: Color(0xFF1A56DB)),
+                    const SizedBox(width: 4),
+                    Text(
+                      s.contactPhone,
+                      style: const TextStyle(
+                        color: Color(0xFF1A56DB),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Build ────────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _bgGray,
+      body: StreamBuilder<List<DisasterModel>>(
+        stream: _fs.disastersStream(),
+        builder: (ctx, disasterSnap) {
+          return StreamBuilder<List<ShelterModel>>(
+            stream: _fs.sheltersStream(),
+            builder: (ctx, shelterSnap) {
+              final disasters = disasterSnap.data ?? [];
+              final shelters = shelterSnap.data ?? [];
+              final activeDisasters = disasters
+                  .where((d) => d.status == 'active')
+                  .toList();
+              final openShelters = shelters
+                  .where((s) => s.status == 'open')
+                  .toList();
+              final totalAffected = disasters.fold<int>(
+                0,
+                (sum, d) => sum + (d.affectedAreaIds.length * 850),
+              );
+
+              return Column(
+                children: [
+                  _buildHeader(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildAlertsSection(
+                            disasters.isEmpty ? [] : disasters,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildSafetyCheckIn(),
+                          const SizedBox(height: 16),
+                          _buildQuickStats(
+                            activeDisasters.length,
+                            openShelters.length,
+                            totalAffected,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildCategories(context, shelters),
+                          const SizedBox(height: 16),
+                          _buildPopularServices(),
+                          const SizedBox(height: 16),
+                          _buildEmergencyContacts(),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  // ── Country Picker ────────────────────────────────────────────────────────
+  void _showCountryPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE5E7EB),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Select Country',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _countries.length,
+                itemBuilder: (_, i) {
+                  final c = _countries[i];
+                  final isSelected = c['name'] == _selectedCountry;
+                  return ListTile(
+                    leading: Text(
+                      c['flag']!,
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                    title: Text(
+                      c['name']!,
+                      style: TextStyle(
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: isSelected
+                            ? const Color(0xFF1A56DB)
+                            : const Color(0xFF111827),
+                      ),
+                    ),
+                    trailing: isSelected
+                        ? const Icon(Icons.check, color: Color(0xFF1A56DB))
+                        : null,
+                    onTap: () {
+                      setState(() => _selectedCountry = c['name']!);
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Notifications Panel ───────────────────────────────────────────────────
+  void _showNotificationsPanel() {
+    // Mark all as read when panel is opened
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setInner) => DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          maxChildSize: 0.95,
+          minChildSize: 0.4,
+          builder: (_, scrollCtrl) => Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // Handle
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 4),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Notifications',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            for (final n in _notifications) {
+                              n['read'] = true;
+                            }
+                          });
+                          setInner(() {});
+                        },
+                        child: const Text(
+                          'Mark all read',
+                          style: TextStyle(
+                            color: Color(0xFF1A56DB),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                // Notification list
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollCtrl,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: _notifications.length,
+                    separatorBuilder: (_, _) =>
+                        const Divider(height: 1, indent: 72),
+                    itemBuilder: (_, i) {
+                      final n = _notifications[i];
+                      final isRead = n['read'] as bool;
+                      return InkWell(
+                        onTap: () {
+                          setState(() => _notifications[i]['read'] = true);
+                          setInner(() {});
+                        },
+                        child: Container(
+                          color: isRead
+                              ? Colors.transparent
+                              : const Color(0xFFEFF6FF),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Icon circle
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: (n['color'] as Color).withValues(
+                                    alpha: 0.12,
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  n['icon'] as IconData,
+                                  color: n['color'] as Color,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Text
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            n['title'] as String,
+                                            style: TextStyle(
+                                              fontWeight: isRead
+                                                  ? FontWeight.w500
+                                                  : FontWeight.bold,
+                                              fontSize: 14,
+                                              color: const Color(0xFF111827),
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          n['time'] as String,
+                                          style: const TextStyle(
+                                            color: Color(0xFF9CA3AF),
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      n['body'] as String,
+                                      style: const TextStyle(
+                                        color: Color(0xFF6B7280),
+                                        fontSize: 13,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (!isRead)
+                                Container(
+                                  margin: const EdgeInsets.only(
+                                    top: 6,
+                                    left: 8,
+                                  ),
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF1A56DB),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ).then((_) {
+      // Refresh the red dot on the bell after closing panel
+      setState(() {});
+    });
+  }
+
+  // ── Header ───────────────────────────────────────────────────────────────────
+
+  Widget _buildHeader() {
+    return SafeArea(
+      bottom: false,
+      child: Container(
+        color: _blue,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          children: [
+            // Location row + bell
+            Row(
+              children: [
+                // Country selector button
+                GestureDetector(
+                  onTap: _showCountryPicker,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.location_on,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _selectedCountry,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.keyboard_arrow_down,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                // Profile avatar icon
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProfilePage()),
+                  ),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.25),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.person,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+                // Notification bell
+                Stack(
+                  children: [
+                    IconButton(
+                      onPressed: _showNotificationsPanel,
+                      icon: const Icon(
+                        Icons.notifications_outlined,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    if (_notifications.any((n) => n['read'] == false))
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFEF4444),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Search bar
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search emergency info...',
+                        hintStyle: TextStyle(
+                          color: Color(0xFF9CA3AF),
+                          fontSize: 14,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: Color(0xFF9CA3AF),
+                          size: 20,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: IconButton(
+                    onPressed: () {},
+                    icon: const Icon(Icons.tune, color: Colors.white, size: 22),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Alerts Section ───────────────────────────────────────────────────────────
+
+  Widget _buildAlertsSection(List<DisasterModel> disasters) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '#AlertsForYou',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              TextButton(
+                onPressed: () {},
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'See All',
+                  style: TextStyle(
+                    color: _blue,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (disasters.isEmpty)
+          _buildEmptyAlerts()
+        else ...[
+          SizedBox(
+            height: 210,
+            child: PageView.builder(
+              controller: _pageCtrl,
+              itemCount: disasters.length,
+              onPageChanged: (i) => setState(() => _currentAlertPage = i),
+              itemBuilder: (_, i) => _buildAlertCard(disasters[i]),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              disasters.length,
+              (i) => AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: i == _currentAlertPage ? 20 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: i == _currentAlertPage
+                      ? _blue
+                      : const Color(0xFFD1D5DB),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ),
+          // Location + status row for current card
+          if (disasters.isNotEmpty && _currentAlertPage < disasters.length)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.location_on_outlined,
+                    size: 14,
+                    color: Color(0xFF6B7280),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    disasters[_currentAlertPage].affectedAreaIds
+                        .join(', ')
+                        .replaceAll('area-', '')
+                        .toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                  const Spacer(),
+                  const Icon(Icons.circle, size: 8, color: Color(0xFF22C55E)),
+                  const SizedBox(width: 4),
+                  Text(
+                    disasters[_currentAlertPage].status.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildEmptyAlerts() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      height: 160,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.check_circle_outline,
+              color: Color(0xFF22C55E),
+              size: 36,
+            ),
+            SizedBox(height: 8),
+            Text(
+              'No active alerts in your area',
+              style: TextStyle(
+                color: Color(0xFF6B7280),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlertCard(DisasterModel d) {
+    final grad = _disasterGradient(d.type);
+    final action = _actionLabel(d.severity);
+    final sevColor = _severityColor(d.severity);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        gradient: grad,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: grad.colors.first.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Background icon
+          Positioned(
+            right: -20,
+            bottom: -20,
+            child: Icon(
+              _disasterIcon(d.type),
+              size: 120,
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          // Content
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top badges row
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'Limited time!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: sevColor,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        d.severity.toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                // Title
+                Text(
+                  d.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+                // Action label + time
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: sevColor,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        action,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _timeAgo(d.createdAt),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Safety Check-In ──────────────────────────────────────────────────────────
+
+  Widget _buildSafetyCheckIn() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _isSafe
+              ? const Color(0xFF22C55E).withValues(alpha: 0.1)
+              : const Color(0xFFECFDF5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _isSafe ? const Color(0xFF22C55E) : const Color(0xFFBBF7D0),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: _isSafe
+                    ? const Color(0xFF22C55E)
+                    : const Color(0xFF22C55E).withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _isSafe ? Icons.check : Icons.people_alt_outlined,
+                color: _isSafe ? Colors.white : const Color(0xFF22C55E),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _isSafe ? 'You\'re marked safe' : 'Safety Check-In',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _isSafe
+                        ? 'Your community has been notified'
+                        : 'Let your community know you\'re safe',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () {
+                setState(() => _isSafe = !_isSafe);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      _isSafe
+                          ? '✅ Safety status shared with your community'
+                          : 'Safety check-in cleared',
+                    ),
+                    backgroundColor: _isSafe
+                        ? const Color(0xFF22C55E)
+                        : Colors.grey,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: _isSafe
+                      ? const Color(0xFF22C55E)
+                      : const Color(0xFF16A34A),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Text(
+                  _isSafe ? '✓ Safe' : "I'm Safe",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Quick Stats ───────────────────────────────────────────────────────────────
+
+  Widget _buildQuickStats(
+    int activeDisasters,
+    int openShelters,
+    int totalAffected,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          _statChip(
+            icon: Icons.warning_amber_rounded,
+            value: '$activeDisasters',
+            label: 'Active',
+            color: const Color(0xFFEF4444),
+          ),
+          const SizedBox(width: 8),
+          _statChip(
+            icon: Icons.house,
+            value: '$openShelters',
+            label: 'Shelters',
+            color: const Color(0xFF22C55E),
+          ),
+          const SizedBox(width: 8),
+          _statChip(
+            icon: Icons.people,
+            value: '${(totalAffected / 1000).toStringAsFixed(1)}K',
+            label: 'Affected',
+            color: const Color(0xFFF97316),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statChip({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 16),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Categories ────────────────────────────────────────────────────────────────
+
+  Widget _buildCategories(BuildContext context, List<ShelterModel> shelters) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Categories',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              TextButton(
+                onPressed: () {},
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'See all',
+                  style: TextStyle(
+                    color: _blue,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _categoryButton(
+                icon: Icons.sos,
+                label: 'SOS',
+                color: const Color(0xFFEF4444),
+                onTap: () => _showSOSDialog(context),
+              ),
+              _categoryButton(
+                icon: Icons.edit_document,
+                label: 'Report',
+                color: const Color(0xFF1A56DB),
+                onTap: () => _showReportSnack(context),
+              ),
+              _categoryButton(
+                icon: Icons.near_me,
+                label: 'Shelter',
+                color: const Color(0xFF16A34A),
+                onTap: () => _showShelterSheet(context, shelters),
+              ),
+              _categoryButton(
+                icon: Icons.map,
+                label: 'Map',
+                color: const Color(0xFF7C3AED),
+                onTap: () => widget.onNavigateToMap?.call(),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _categoryButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.35),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF374151),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSOSDialog(BuildContext ctx) {
+    showDialog(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.sos, color: Color(0xFFEF4444), size: 28),
+            SizedBox(width: 8),
+            Text(
+              'Send SOS Alert',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: const Text(
+          'This will immediately notify emergency services and your emergency contacts. Only use in a real emergency.',
+          style: TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('🆘 SOS Alert Sent! Help is on the way.'),
+                  backgroundColor: const Color(0xFFEF4444),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            },
+            child: const Text(
+              'Send SOS',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReportSnack(BuildContext ctx) {
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(
+        content: const Text('📋 Incident reporting coming soon'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // ── Popular Services ──────────────────────────────────────────────────────────
+
+  Widget _buildPopularServices() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Popular Services',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              TextButton(
+                onPressed: () {},
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'See all',
+                  style: TextStyle(
+                    color: _blue,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _serviceRow(
+                  icon: Icons.groups,
+                  iconColor: const Color(0xFF1A56DB),
+                  title: 'Community Updates',
+                  subtitle: 'Connect with 234 members • 45 active now',
+                  tags: ['12 new', 'Social'],
+                  tagColor: const Color(0xFF1A56DB),
+                  rating: '4.9',
+                  isLast: false,
+                ),
+                _serviceRow(
+                  icon: Icons.assignment_outlined,
+                  iconColor: const Color(0xFF7C3AED),
+                  title: 'My Cases',
+                  subtitle: 'Track your incident reports and submissions',
+                  tags: ['3 active', 'Reports'],
+                  tagColor: const Color(0xFF7C3AED),
+                  rating: '4.8',
+                  isLast: false,
+                ),
+                _serviceRow(
+                  icon: Icons.medical_services_outlined,
+                  iconColor: const Color(0xFFEF4444),
+                  title: 'First Aid Guides',
+                  subtitle: 'Emergency procedures for common disasters',
+                  tags: ['Offline', 'Health'],
+                  tagColor: const Color(0xFFEF4444),
+                  rating: '4.7',
+                  isLast: true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _serviceRow({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required List<String> tags,
+    required Color tagColor,
+    required String rating,
+    required bool isLast,
+  }) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 26),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      children: tags
+                          .map(
+                            (t) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: tagColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                t,
+                                style: TextStyle(
+                                  color: tagColor,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                children: [
+                  const Icon(Icons.star, color: Color(0xFFF59E0B), size: 14),
+                  const SizedBox(height: 2),
+                  Text(
+                    rating,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF374151),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (!isLast)
+          Divider(height: 1, color: const Color(0xFFE5E7EB), indent: 78),
+      ],
+    );
+  }
+
+  // ── Emergency Contacts ───────────────────────────────────────────────────────
+
+  Widget _buildEmergencyContacts() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Emergency Contacts',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF111827),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _emergencyContactBtn(
+                label: 'Police',
+                number: '999',
+                icon: Icons.local_police,
+                color: const Color(0xFF1A56DB),
+              ),
+              const SizedBox(width: 8),
+              _emergencyContactBtn(
+                label: 'Fire',
+                number: '994',
+                icon: Icons.local_fire_department,
+                color: const Color(0xFFEF4444),
+              ),
+              const SizedBox(width: 8),
+              _emergencyContactBtn(
+                label: 'Ambulance',
+                number: '999',
+                icon: Icons.medical_services,
+                color: const Color(0xFF22C55E),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emergencyContactBtn({
+    required String label,
+    required String number,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _callNumber(number),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Color(0xFF374151),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                number,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
