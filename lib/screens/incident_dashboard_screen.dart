@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:kitahack/services/ai_service.dart';
 
 class IncidentDashboardScreen extends StatefulWidget {
   const IncidentDashboardScreen({super.key});
@@ -15,6 +16,11 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
   String _statusFilter = 'All';
   DateTime? _fromDate;
   DateTime? _toDate;
+
+  final AiService _aiService = AiService();
+  Map<String, dynamic>? _aiInsightData;
+  bool _isSummarizing = false;
+  List<Map<String, dynamic>> _lastAnalyzedIncidents = [];
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -137,6 +143,40 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
     }
   }
 
+  Future<void> _generateAiSummary(List<QueryDocumentSnapshot> docs) async {
+    if (docs.isEmpty) {
+      setState(
+        () => _aiInsightData = {
+          "summary": "No incidents to analyze.",
+          "groups": [],
+        },
+      );
+      return;
+    }
+
+    final incidents = docs
+        .map((doc) => doc.data() as Map<String, dynamic>)
+        .toList();
+
+    // Simple check to avoid redundant calls if data hasn't changed much
+    if (_aiInsightData != null &&
+        incidents.length == _lastAnalyzedIncidents.length) {
+      // Potentially skip if count is same
+    }
+
+    setState(() {
+      _isSummarizing = true;
+    });
+
+    final insightData = await _aiService.summarizeIncidents(incidents);
+
+    setState(() {
+      _aiInsightData = insightData;
+      _isSummarizing = false;
+      _lastAnalyzedIncidents = incidents;
+    });
+  }
+
   // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
@@ -222,6 +262,10 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
               _filterCard(),
               const SizedBox(height: 14),
 
+              // ── AI Summary Section ──────────────────────────────────────────
+              _aiSummarySection(filtered),
+              const SizedBox(height: 14),
+
               // ── Incident List ────────────────────────────────────────
               _incidentList(filtered),
               const SizedBox(height: 80),
@@ -298,7 +342,7 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -360,7 +404,7 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -543,11 +587,11 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: active
-              ? const Color(0xFF1565C0).withValues(alpha: 0.08)
+              ? const Color(0xFF1565C0).withOpacity(0.08)
               : const Color(0xFFF7F8FA),
           border: Border.all(
             color: active
-                ? const Color(0xFF1565C0).withValues(alpha: 0.4)
+                ? const Color(0xFF1565C0).withOpacity(0.4)
                 : Colors.grey.shade200,
           ),
           borderRadius: BorderRadius.circular(8),
@@ -588,7 +632,7 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -814,5 +858,343 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays < 30) return '${diff.inDays}d ago';
     return '${(diff.inDays / 30).floor()}mo ago';
+  }
+
+  Widget _aiSummarySection(List<QueryDocumentSnapshot> filteredDocs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.auto_awesome, size: 18, color: Color(0xFF1565C0)),
+            const SizedBox(width: 8),
+            const Text(
+              'Recent Activities (AI Summary)',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            const Spacer(),
+            if (_isSummarizing)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              IconButton(
+                icon: const Icon(
+                  Icons.refresh,
+                  size: 18,
+                  color: Color(0xFF1565C0),
+                ),
+                onPressed: () => _generateAiSummary(filteredDocs),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (_aiInsightData == null && !_isSummarizing)
+          _generateEmptyState(filteredDocs)
+        else if (_aiInsightData != null)
+          _buildInsightContent()
+        else if (_isSummarizing)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Text(
+                'AI is analyzing data and grouping cases...',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _generateEmptyState(List<QueryDocumentSnapshot> filteredDocs) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.insights, size: 40, color: Color(0xFFBBDEFB)),
+          const SizedBox(height: 12),
+          const Text(
+            'Ready to analyze the dashboard data',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Group related incidents and spot trends automatically.',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () => _generateAiSummary(filteredDocs),
+            icon: const Icon(Icons.auto_awesome, size: 16),
+            label: const Text('Generate AI Insights'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1565C0),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInsightContent() {
+    final String summary = _aiInsightData?['summary'] ?? '';
+    final List groups = _aiInsightData?['groups'] ?? [];
+    final String trends = _aiInsightData?['disasterTrends'] ?? '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Summary Card
+        _insightCard(
+          title: 'Overall Summary',
+          content: summary,
+          icon: Icons.summarize_outlined,
+          color: const Color(0xFF1565C0),
+        ),
+        const SizedBox(height: 12),
+
+        // Group Cards
+        if (groups.isNotEmpty) ...[
+          const Text(
+            'Area-Specific Insights',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...groups.map((g) {
+            final String area = g['area'] ?? 'Unknown';
+            final int count = g['incidentCount'] ?? 0;
+            final int affected = g['totalAffected'] ?? 0;
+            final String sev = g['collectiveSeverity'] ?? 'Unknown';
+            final String analysis = g['analysis'] ?? '';
+            final String similarity = g['similarCasesTracked'] ?? '';
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _areaInsightCard(
+                area: area,
+                count: count,
+                affected: affected,
+                severity: sev,
+                analysis: analysis,
+                similarity: similarity,
+              ),
+            );
+          }),
+        ],
+
+        // Trends Card
+        if (trends.isNotEmpty)
+          _insightCard(
+            title: 'Disaster Trends & Analysis',
+            content: trends,
+            icon: Icons.trending_up,
+            color: const Color(0xFF2E7D32),
+          ),
+      ],
+    );
+  }
+
+  Widget _insightCard({
+    required String title,
+    required String content,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: color.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            content,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.black87,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _areaInsightCard({
+    required String area,
+    required int count,
+    required int affected,
+    required String severity,
+    required String analysis,
+    required String similarity,
+  }) {
+    Color sevColor;
+    switch (severity.toLowerCase()) {
+      case 'critical':
+      case 'high':
+        sevColor = const Color(0xFFE53935);
+        break;
+      case 'medium':
+        sevColor = const Color(0xFFF57C00);
+        break;
+      default:
+        sevColor = const Color(0xFF43A047);
+    }
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(14),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    area,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                _badge(severity, sevColor, filled: true),
+              ],
+            ),
+          ),
+          // Stats Row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+            child: Row(
+              children: [
+                _miniStat(Icons.article_outlined, '$count Cases'),
+                const SizedBox(width: 16),
+                _miniStat(Icons.people_outline, '$affected Affected'),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Analysis
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'SITUATION ANALYSIS',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  analysis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.black87,
+                    height: 1.4,
+                  ),
+                ),
+                if (similarity.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    'SIMILARITY TRENDS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    similarity,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade700,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniStat(IconData icon, String label) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: Colors.grey),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+      ],
+    );
   }
 }
