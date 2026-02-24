@@ -1,3 +1,4 @@
+import 'dart:math' show cos, sqrt, pi;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/incident_model.dart';
 import '../models/reporter_model.dart';
@@ -6,6 +7,7 @@ import '../models/shelter_model.dart';
 import '../models/community_post_model.dart';
 import '../models/reported_case_model.dart';
 import '../models/area_model.dart';
+import 'package:geocoding/geocoding.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -65,6 +67,100 @@ class FirestoreService {
       'responseStatus': statuses,
       'responseUpdatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  // ── Nearest Area Detection ──────────────────────────────────────────────
+
+  /// Find the nearest area for a given location.
+  /// If [insideRadius] is true, returns null if the user is not within any area's radius.
+  Future<String?> getNearestAreaId(
+    double lat,
+    double lng, {
+    bool insideRadius = false,
+  }) async {
+    final areas = await _db.collection('areas').get();
+    if (areas.docs.isEmpty) return null;
+
+    String? nearestId;
+    double minDistance = double.infinity;
+
+    for (var doc in areas.docs) {
+      final area = AreaModel.fromFirestore(doc);
+      final dist = _calculateDistance(lat, lng, area.centerLat, area.centerLng);
+
+      if (dist < minDistance) {
+        if (!insideRadius || dist <= area.radiusKm) {
+          minDistance = dist;
+          nearestId = area.areaId;
+        }
+      }
+    }
+
+    return nearestId;
+  }
+
+  /// Get area ID if user is within 5km of an existing center,
+  /// otherwise create a new area and return its ID.
+  Future<String> getOrCreateAreaId(double lat, double lng) async {
+    // 1. Check for existing area within 5km
+    final nearestAreaId = await getNearestAreaId(lat, lng, insideRadius: true);
+    if (nearestAreaId != null) return nearestAreaId;
+
+    // 2. Determine a friendly name using Reverse Geocoding
+    String newAreaName =
+        "Area Around ${lat.toStringAsFixed(2)}, ${lng.toStringAsFixed(2)}";
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        // Construct name from neighborhood (subLocality), city (locality), or state (adminArea)
+        final neighborhood = place.subLocality ?? "";
+        final city = place.locality ?? "";
+        final state = place.administrativeArea ?? "";
+
+        if (neighborhood.isNotEmpty && city.isNotEmpty) {
+          newAreaName = "$neighborhood, $city";
+        } else if (city.isNotEmpty) {
+          newAreaName = city;
+        } else if (state.isNotEmpty) {
+          newAreaName = state;
+        }
+      }
+    } catch (e) {
+      // Fallback to coordinate-based name if geocoding fails
+      print("Geocoding failed: $e");
+    }
+
+    // 3. Create new area
+    final docRef = _db.collection('areas').doc();
+    final newAreaId = docRef.id;
+
+    final newArea = AreaModel(
+      id: newAreaId,
+      areaId: newAreaId,
+      name: newAreaName,
+      centerLat: lat,
+      centerLng: lng,
+      radiusKm: 5.0, // Default radius
+    );
+
+    await docRef.set(newArea.toMap());
+    return newAreaId;
+  }
+
+  double _calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const p = pi / 180;
+    const c = cos;
+    final a =
+        0.5 -
+        c((lat2 - lat1) * p) / 2 +
+        c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p)) / 2;
+    return 12742 * sqrt(a); // 2 * R; R = 6371 km
   }
 
   Stream<List<DisasterModel>> disastersStream({String? status}) {
@@ -162,29 +258,27 @@ class FirestoreService {
     final shelterSnap = await _db.collection('shelters').limit(1).get();
     final postSnap = await _db.collection('posts').limit(1).get();
     final caseSnap = await _db.collection('reported_cases').limit(1).get();
-    final areaSnap = await _db.collection('areas').limit(1).get();
 
     final needIncidents = incidentSnap.docs.isEmpty;
     final needReporters = reporterSnap.docs.isEmpty;
     final needDisasters = disasterSnap.docs.isEmpty;
     final needShelters = shelterSnap.docs.isEmpty;
     final needPosts = postSnap.docs.isEmpty;
-    final needCases = caseSnap.docs.length < 10;
-    final needAreas = areaSnap.docs.isEmpty;
+    final needCases = caseSnap.docs.isEmpty;
 
     if (!needIncidents &&
         !needReporters &&
         !needDisasters &&
         !needShelters &&
         !needPosts &&
-        !needCases &&
-        !needAreas) {
+        !needCases) {
       return;
     }
 
+    final now = DateTime.now();
+
     // ── Seed posts + comments ────────────────────────────────────────────────
     if (needPosts) {
-      final now = DateTime.now();
       // Define posts data
       final postsData = [
         {
@@ -548,7 +642,6 @@ class FirestoreService {
       }
     }
 
-    final now = DateTime.now();
     final incidents = [
       IncidentModel(
         id: 'INC-001',
@@ -1005,45 +1098,7 @@ class FirestoreService {
       }
     }
 
-    // ── Seed Areas ───────────────────────────────────────────────────────────
-    if (needAreas) {
-      final areas = [
-        {
-          'areaId': 'area-klcc',
-          'name': 'KLCC & City Centre',
-          'center': const GeoPoint(3.1579, 101.7116),
-        },
-        {
-          'areaId': 'area-bukitbintang',
-          'name': 'Bukit Bintang',
-          'center': const GeoPoint(3.1466, 101.7115),
-        },
-        {
-          'areaId': 'area-cheras',
-          'name': 'Cheras District',
-          'center': const GeoPoint(3.1030, 101.7349),
-        },
-        {
-          'areaId': 'area-ampang',
-          'name': 'Ampang Jaya',
-          'center': const GeoPoint(3.1479, 101.7602),
-        },
-        {
-          'areaId': 'area-kepong',
-          'name': 'Kepong Industrial',
-          'center': const GeoPoint(3.2100, 101.6388),
-        },
-        {
-          'areaId': 'area-wangsamaju',
-          'name': 'Wangsa Maju',
-          'center': const GeoPoint(3.1855, 101.7452),
-        },
-      ];
-      for (final area in areas) {
-        batch.set(_db.collection('areas').doc(area['areaId'] as String), area);
-      }
-    }
-
+    /*
     // ── Seed Reported Cases ──────────────────────────────────────────────────
     if (needCases) {
       final cases = [
@@ -1298,6 +1353,7 @@ class FirestoreService {
         batch.set(_db.collection('reported_cases').doc(), c);
       }
     }
+    */
 
     await batch.commit();
   }

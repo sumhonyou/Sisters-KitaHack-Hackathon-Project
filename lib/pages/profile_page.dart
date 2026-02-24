@@ -28,6 +28,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isSaving = false;
   bool _isUploadingPhoto = false;
   File? _pendingPhoto;
+  String _areaName = 'Loading...';
 
   // Edit controllers
   late TextEditingController _nameCtrl;
@@ -61,10 +62,13 @@ class _ProfilePageState extends State<ProfilePage> {
       if (currentUid == null) return;
       final doc = await _db.collection('users').doc(currentUid).get();
       if (doc.exists) {
+        final userData = UserModel.fromFirestore(doc);
         setState(() {
-          _user = UserModel.fromFirestore(doc);
+          _user = userData;
           _syncControllers();
         });
+        // Fetch area name
+        _loadAreaName(userData.homeAreaId);
       } else {
         // Seed a demo user
         final demo = UserModel(
@@ -91,6 +95,25 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     } catch (e) {
       debugPrint('Error loading user: $e');
+    }
+  }
+
+  Future<void> _loadAreaName(String areaId) async {
+    if (areaId.isEmpty) {
+      setState(() => _areaName = 'None');
+      return;
+    }
+    try {
+      final areaDoc = await _db.collection('areas').doc(areaId).get();
+      if (areaDoc.exists) {
+        setState(() => _areaName = areaDoc.data()?['name'] ?? 'Unknown Area');
+      } else {
+        // Compatibility for old format "area-XXXX"
+        final cleanId = areaId.replaceAll('area-', '').toUpperCase();
+        setState(() => _areaName = cleanId);
+      }
+    } catch (e) {
+      setState(() => _areaName = 'Error loading');
     }
   }
 
@@ -862,11 +885,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _infoRow(Icons.badge_outlined, 'Full Name', _user!.fullName),
         _infoRow(Icons.email_outlined, 'Email', _user!.email),
         _infoRow(Icons.phone_outlined, 'Phone', _user!.phone),
-        _infoRow(
-          Icons.location_on_outlined,
-          'Home Area',
-          _user!.homeAreaId.replaceAll('area-', '').toUpperCase(),
-        ),
+        _infoRow(Icons.location_on_outlined, 'Home Area', _areaName),
         _infoRow(
           Icons.accessible_outlined,
           'Special Needs',

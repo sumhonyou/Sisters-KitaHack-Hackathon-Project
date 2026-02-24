@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'firestore_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirestoreService _firestoreService = FirestoreService();
 
   // Get current user
   User? get currentUser => _auth.currentUser;
@@ -32,6 +34,8 @@ class AuthService {
     required String password,
     required String fullName,
     required String phone,
+    double? latitude,
+    double? longitude,
   }) async {
     try {
       // 1. Create user in Firebase Auth
@@ -40,7 +44,16 @@ class AuthService {
         password: password,
       );
 
-      // 2. Add user details to Firestore
+      // 2. Determine nearest area or create new one if location is provided
+      String homeAreaId = '';
+      if (latitude != null && longitude != null) {
+        homeAreaId = await _firestoreService.getOrCreateAreaId(
+          latitude,
+          longitude,
+        );
+      }
+
+      // 3. Add user details to Firestore
       if (result.user != null) {
         await _firestore.collection('users').doc(result.user!.uid).set({
           'fullName': fullName,
@@ -48,6 +61,10 @@ class AuthService {
           'phone': phone,
           'createdAt': FieldValue.serverTimestamp(),
           'uid': result.user!.uid,
+          'homeAreaId': homeAreaId,
+          'role': 'public',
+          'disability': false,
+          'emergencyContacts': [],
         });
       }
 
