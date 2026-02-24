@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kitahack/services/auth_service.dart';
-import 'package:kitahack/screens/signup_screen.dart'; // Will create this next
-import 'package:kitahack/screens/home_screen.dart'; // Assuming this exists or will exist
+import 'package:kitahack/pages/signup_screen.dart'; // Will create this next
+import 'package:kitahack/pages/main_shell.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Navigate to Home on success
         if (mounted) {
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
+            MaterialPageRoute(builder: (context) => const MainShell()),
           );
         }
       } catch (e) {
