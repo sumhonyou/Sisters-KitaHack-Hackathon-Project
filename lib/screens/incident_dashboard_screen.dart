@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:kitahack/services/ai_service.dart';
 
 class IncidentDashboardScreen extends StatefulWidget {
@@ -14,12 +15,14 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
   String _severityFilter = 'All';
   String _typeFilter = 'All';
   String _statusFilter = 'All';
+  String _timeFilter = 'All Time'; // New state
   DateTime? _fromDate;
   DateTime? _toDate;
 
   final AiService _aiService = AiService();
   Map<String, dynamic>? _aiInsightData;
   bool _isSummarizing = false;
+  bool _isReloading = false; // New state
   List<Map<String, dynamic>> _lastAnalyzedIncidents = [];
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -85,7 +88,7 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
       if (_statusFilter != 'All' && _checkInLabel(checkIn) != _statusFilter) {
         return false;
       }
-      // Date range filter (from = start of day, to = end of day)
+      // Date range filter
       if (_fromDate != null && ts != null && ts.isBefore(_fromDate!)) {
         return false;
       }
@@ -100,6 +103,21 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
         );
         if (ts.isAfter(endOfDay)) return false;
       }
+
+      // Time period filter
+      if (_timeFilter != 'All Time' && ts != null) {
+        final now = DateTime.now();
+        if (_timeFilter == '30 Mins' &&
+            ts.isBefore(now.subtract(const Duration(minutes: 30))))
+          return false;
+        if (_timeFilter == '1 Hour' &&
+            ts.isBefore(now.subtract(const Duration(hours: 1))))
+          return false;
+        if (_timeFilter == '1 Day' &&
+            ts.isBefore(now.subtract(const Duration(days: 1))))
+          return false;
+      }
+
       return true;
     }).toList();
   }
@@ -175,6 +193,28 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
       _isSummarizing = false;
       _lastAnalyzedIncidents = incidents;
     });
+  }
+
+  Future<void> _reloadDisasters() async {
+    setState(() => _isReloading = true);
+    try {
+      final result = await FirebaseFunctions.instanceFor(
+        region: 'us-central1',
+      ).httpsCallable('reaggregateDisasters').call();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Activity refreshed via AI!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('❌ Reload failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isReloading = false);
+    }
   }
 
   // ─── Build ────────────────────────────────────────────────────────────────
@@ -268,6 +308,12 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
 
               // ── Incident List ────────────────────────────────────────
               _incidentList(filtered),
+
+              const SizedBox(height: 14),
+
+              // ── Recent Activity (Last 2 Days) ────────────────────────
+              _recentActivityCard(),
+
               const SizedBox(height: 80),
             ],
           );
@@ -342,7 +388,7 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -395,6 +441,7 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
         _severityFilter != 'All' ||
         _typeFilter != 'All' ||
         _statusFilter != 'All' ||
+        _timeFilter != 'All Time' ||
         _fromDate != null ||
         _toDate != null;
     return Container(
@@ -404,7 +451,7 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -428,6 +475,7 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
                     _severityFilter = 'All';
                     _typeFilter = 'All';
                     _statusFilter = 'All';
+                    _timeFilter = 'All Time';
                     _fromDate = null;
                     _toDate = null;
                   }),
@@ -477,6 +525,15 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
                   value: _statusFilter,
                   items: ['All', 'Safe', 'Need Help', 'Trapped'],
                   onChanged: (val) => setState(() => _statusFilter = val!),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _dropdown(
+                  label: 'Time',
+                  value: _timeFilter,
+                  items: ['All Time', '30 Mins', '1 Hour', '1 Day'],
+                  onChanged: (val) => setState(() => _timeFilter = val!),
                 ),
               ),
             ],
@@ -587,11 +644,11 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: active
-              ? const Color(0xFF1565C0).withOpacity(0.08)
+              ? const Color(0xFF1565C0).withValues(alpha: 0.08)
               : const Color(0xFFF7F8FA),
           border: Border.all(
             color: active
-                ? const Color(0xFF1565C0).withOpacity(0.4)
+                ? const Color(0xFF1565C0).withValues(alpha: 0.4)
                 : Colors.grey.shade200,
           ),
           borderRadius: BorderRadius.circular(8),
@@ -648,7 +705,9 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'All Incidents (${docs.length})',
+                  docs.length > 20
+                      ? 'All Incidents (Showing top 20 of ${docs.length})'
+                      : 'All Incidents (${docs.length})',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -685,11 +744,15 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
               ),
             )
           else
-            ...docs.asMap().entries.map((entry) {
+            ...docs.take(20).toList().asMap().entries.map((entry) {
               final idx = entry.key;
               final doc = entry.value;
               final data = doc.data() as Map<String, dynamic>;
-              return _incidentTile(data, idx, docs.length);
+              return _incidentTile(
+                data,
+                idx,
+                docs.length > 20 ? 20 : docs.length,
+              );
             }),
         ],
       ),
@@ -1182,6 +1245,263 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _recentActivityCard() {
+    final twoDaysAgo = DateTime.now().subtract(const Duration(days: 2));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            children: [
+              const Icon(Icons.show_chart, size: 20, color: Colors.black87),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Recent Activity',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    Text(
+                      'Latest updates and incident reports',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              if (_isReloading)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 20, color: Colors.blue),
+                  onPressed: _reloadDisasters,
+                  tooltip: "Re-run AI Grouping",
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('disasters')
+              .where(
+                'updatedAt',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(twoDaysAgo),
+              )
+              .orderBy('updatedAt', descending: true)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+            final docs = snapshot.data?.docs ?? [];
+            if (docs.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Center(
+                  child: Text(
+                    'No active disasters in the last 48 hours.',
+                    style: TextStyle(color: Colors.grey.shade400),
+                  ),
+                ),
+              );
+            }
+
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: docs.length,
+                separatorBuilder: (context, index) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final data = docs[index].data() as Map<String, dynamic>;
+                  return _recentActivityTile(data);
+                },
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _recentActivityTile(Map<String, dynamic> data) {
+    final type = (data['type'] as String?)?.toUpperCase() ?? 'OTHER';
+    final severity = (data['severity'] as String?)?.toLowerCase() ?? 'low';
+    final title = data['title'] ?? 'Generic Incident';
+    final desc = data['description'] ?? '';
+    final location = data['locationLabel'] ?? 'Unknown Area';
+    final affected = data['affectedCount'] ?? 0;
+    final ts = data['updatedAt'] as Timestamp?;
+    final timeAgo = ts != null ? _timeAgo(ts.toDate()) : '—';
+
+    IconData icon;
+    Color iconColor;
+    Color iconBg;
+
+    switch (type) {
+      case 'FLOOD':
+        icon = Icons.tsunami_outlined;
+        iconColor = Colors.blue.shade700;
+        iconBg = Colors.blue.shade50;
+        break;
+      case 'FIRE':
+        icon = Icons.local_fire_department_outlined;
+        iconColor = Colors.red.shade700;
+        iconBg = Colors.red.shade50;
+        break;
+      case 'EARTHQUAKE':
+        icon = Icons.vibration_outlined;
+        iconColor = Colors.brown.shade700;
+        iconBg = Colors.brown.shade50;
+        break;
+      default:
+        icon = Icons.warning_amber_outlined;
+        iconColor = Colors.orange.shade700;
+        iconBg = Colors.orange.shade50;
+    }
+
+    Color sevColor;
+    switch (severity) {
+      case 'critical':
+        sevColor = const Color(0xFFB71C1C);
+        break;
+      case 'high':
+        sevColor = const Color(0xFF212121);
+        break;
+      default:
+        sevColor = const Color(0xFF78909C);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 20, color: iconColor),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: sevColor,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            severity,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      desc,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _activityMeta(Icons.location_on_outlined, location),
+                        const SizedBox(width: 12),
+                        _activityMeta(
+                          Icons.people_outline,
+                          '$affected affected',
+                        ),
+                        const SizedBox(width: 12),
+                        _activityMeta(Icons.access_time, timeAgo),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _activityMeta(IconData icon, String label) {
+    return Row(
+      children: [
+        Icon(icon, size: 13, color: Colors.grey.shade400),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+        ),
+      ],
     );
   }
 

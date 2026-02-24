@@ -102,7 +102,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
       'description': _descController.text.trim().isEmpty
           ? 'Please describe what you are observing'
           : null,
-      'photo': _mediaFiles.isEmpty ? 'Please add at least one photo' : null,
+      'photo': null,
     };
     setState(() => _errors.addAll(errs));
     return errs.values.every((e) => e == null);
@@ -468,7 +468,11 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
             const SizedBox(height: 14),
 
             // ── Media ─────────────────────────────────────────────────────
-            _sectionLabel('Add Photo', errorKey: 'photo'),
+            _sectionLabel(
+              'Add Photo (Optional)',
+              errorKey: 'photo',
+              isRequired: false,
+            ),
 
             _card(
               child: Column(
@@ -598,7 +602,11 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  Widget _sectionLabel(String text, {String? errorKey}) {
+  Widget _sectionLabel(
+    String text, {
+    String? errorKey,
+    bool isRequired = true,
+  }) {
     final err = errorKey != null ? _errors[errorKey] : null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -615,14 +623,15 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                   color: Colors.black87,
                 ),
               ),
-              const Text(
-                ' *',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+              if (isRequired)
+                const Text(
+                  ' *',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
-              ),
             ],
           ),
           if (err != null)
