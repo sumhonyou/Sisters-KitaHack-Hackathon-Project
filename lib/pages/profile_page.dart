@@ -377,6 +377,88 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 26),
+            SizedBox(width: 8),
+            Text(
+              'Delete Account',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This action is PERMANENT and cannot be undone.',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'All your profile data and your login account will be completely removed from our system. You will need to sign up again if you wish to use the app in the future.',
+              style: TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF6B7280)),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              setState(() => _isSaving = true);
+              try {
+                await _auth.deleteCurrentUser();
+                if (mounted) {
+                  _showSnack('👋 Account deleted successfully', Colors.green);
+                  // Pop until we reach login or root
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil('/', (route) => false);
+                }
+              } catch (e) {
+                if (mounted) {
+                  setState(() => _isSaving = false);
+                  _showSnack('Failed to delete account: $e', Colors.red);
+                }
+              }
+            },
+            child: const Text(
+              'Delete Everything',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
   void _showSnack(String msg, Color color) {
@@ -1018,6 +1100,14 @@ class _ProfilePageState extends State<ProfilePage> {
               : 'Public Account',
           color: const Color(0xFF22C55E),
           showArrow: false,
+        ),
+        const Divider(height: 1, color: Color(0xFFE5E7EB)),
+        _securityTile(
+          icon: Icons.delete_forever,
+          title: 'Delete Account',
+          subtitle: 'Irreversibly delete your data and account',
+          onTap: _showDeleteAccountDialog,
+          color: Colors.red,
         ),
       ],
     );

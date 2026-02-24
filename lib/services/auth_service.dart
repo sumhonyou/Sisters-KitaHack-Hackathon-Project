@@ -54,9 +54,9 @@ class AuthService {
       return result;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'email-already-in-use') {
-        throw 'The email address is already in use by another account. '
-            'If you already signed up, please try logging in instead. '
-            'Note: Deleting Firestore records does not delete your login account.';
+        throw 'This email is already registered in our authentication system. '
+            'If you have previously deleted your data from the database, the account login still exists. '
+            'Please try logging in instead, or use a different email.';
       }
       rethrow;
     } catch (e) {
@@ -67,6 +67,22 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  // Delete account
+  Future<void> deleteCurrentUser() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    try {
+      // 1. Delete Firestore data
+      await _firestore.collection('users').doc(user.uid).delete();
+
+      // 2. Delete Auth user
+      await user.delete();
+    } catch (e) {
+      rethrow;
+    }
   }
 
   // Send password reset email
