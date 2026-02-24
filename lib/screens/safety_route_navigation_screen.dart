@@ -43,7 +43,26 @@ class Shelter {
     var data = doc.data() as Map<String, dynamic>?;
     if (data == null) throw Exception("Document is empty");
 
-    GeoPoint loc = data['location'] ?? const GeoPoint(0, 0);
+    double parsedLat = 0.0;
+    double parsedLng = 0.0;
+
+    // Safely parse location whether it is saved as a GeoPoint, an array, or a map
+    if (data['location'] is GeoPoint) {
+      GeoPoint loc = data['location'];
+      parsedLat = loc.latitude;
+      parsedLng = loc.longitude;
+    } else if (data['location'] is List) {
+      List locArr = data['location'];
+      if (locArr.length >= 2) {
+        parsedLat = (locArr[0] as num).toDouble();
+        parsedLng = (locArr[1] as num).toDouble();
+      }
+    } else if (data['location'] is Map) {
+      Map locMap = data['location'];
+      parsedLat = (locMap['latitude'] ?? locMap['lat'] ?? 0.0).toDouble();
+      parsedLng = (locMap['longitude'] ?? locMap['lng'] ?? 0.0).toDouble();
+    }
+
     List<dynamic> dynamicTags = data['tags'] ?? [];
     // If tags are empty or not provided, we mock them for the UI demo based on the mock data design
     List<String> parsedTags = dynamicTags.map((e) => e.toString()).toList();
@@ -54,8 +73,8 @@ class Shelter {
     return Shelter(
       id: doc.id,
       name: data['name'] ?? 'Unknown Shelter',
-      lat: loc.latitude,
-      lng: loc.longitude,
+      lat: parsedLat,
+      lng: parsedLng,
       capacityCurrent: data['capacityCurrent'] ?? 0,
       capacityTotal: data['capacityTotal'] ?? 100,
       status: data['status']?.toString().toLowerCase() ?? 'closed',
@@ -114,7 +133,14 @@ class _SafetyRouteNavigationScreenState
 
   Future<void> _initializeApp() async {
     try {
+      debugPrint("====== INIT SAFETY ROUTE NAVIGATION ======");
+      debugPrint("Google Maps Key Configured: ${_googleMapsApiKey.isNotEmpty}");
+      debugPrint("Gemini Key Configured: ${_geminiApiKey.isNotEmpty}");
+
       await _getUserLocation();
+      debugPrint(
+        "User Location: ${_currentPosition?.latitude}, ${_currentPosition?.longitude}",
+      );
 
       setState(() => _loadingText = "Finding nearby shelters...");
       List<Shelter> allShelters = await _fetchSheltersFromFirestore();
@@ -235,6 +261,9 @@ class _SafetyRouteNavigationScreenState
         final data = jsonDecode(response.body);
         if (data['routes'] != null && data['routes'].isNotEmpty) {
           final route = data['routes'][0];
+          debugPrint(
+            "Route found for ${shelter.name}: ${route['duration']} and ${route['distanceMeters']} meters",
+          );
 
           final durationStr = route['duration'] as String; // e.g. "356s"
           shelter.etaSeconds =
@@ -245,14 +274,16 @@ class _SafetyRouteNavigationScreenState
           shelter.encodedPolyline = route['polyline']['encodedPolyline'];
         }
       } else {
-        debugPrint("Route API Error: ${response.body}");
+        debugPrint(
+          "Route API Error for ${shelter.name}: HTTP ${response.statusCode} - ${response.body}",
+        );
       }
     }
   }
 
   Future<List<Shelter>> _rankWithGemini(List<Shelter> candidates) async {
     final model = GenerativeModel(
-      model: 'gemini-1.5-flash',
+      model: 'models/gemini-2.5-flash',
       apiKey: _geminiApiKey,
       systemInstruction: Content.system(
         "You are an AI assistant helping a disaster management app rank safe shelters. Output strictly in JSON array format: [{\"id\": \"SH-001\", \"reason\": \"Short reason here\"}]",
@@ -291,7 +322,9 @@ class _SafetyRouteNavigationScreenState
     """;
 
     try {
+      debugPrint("Calling Gemini API for ranking...");
       final response = await model.generateContent([Content.text(prompt)]);
+      debugPrint("Gemini API Response: ${response.text}");
       String reply = response.text ?? "[]";
       // Clean up markdown formatting if any
       reply = reply.replaceAll('```json', '').replaceAll('```', '').trim();
