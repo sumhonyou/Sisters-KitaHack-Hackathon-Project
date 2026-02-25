@@ -80,4 +80,25 @@ class AuthService {
   Future<void> signOut() async {
     await _auth.signOut();
   }
+
+  // Delete account
+  Future<void> deleteCurrentUser() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    try {
+      // 1. Delete Firestore data
+      await _firestore.collection('users').doc(user.uid).delete();
+
+      // 2. Delete Auth user
+      await user.delete();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Send password reset email
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _auth.sendPasswordResetEmail(email: email);
+  }
 }
