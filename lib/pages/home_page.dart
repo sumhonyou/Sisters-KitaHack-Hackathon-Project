@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../models/alert_model.dart';
 import '../models/disaster_model.dart';
 import '../models/shelter_model.dart';
 import '../services/firestore_service.dart';
+import 'alert_detail_page.dart';
 import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
   final VoidCallback? onNavigateToMap;
-  const HomePage({super.key, this.onNavigateToMap});
+  final VoidCallback? onNavigateToAlerts;
+  const HomePage({super.key, this.onNavigateToMap, this.onNavigateToAlerts});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  final PageController _pageCtrl = PageController(
-    viewportFraction: 0.88,
-    initialPage: 0,
-  );
-  int _currentAlertPage = 0;
   bool _isSafe = false;
   final FirestoreService _fs = FirestoreService();
 
@@ -100,105 +98,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _pageCtrl.dispose();
     super.dispose();
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
-
-  LinearGradient _disasterGradient(String type) {
-    switch (type.toLowerCase()) {
-      case 'flood':
-        return const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1565C0), Color(0xFF0277BD)],
-        );
-      case 'earthquake':
-        return const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF4E342E), Color(0xFF6D4C41)],
-        );
-      case 'fire':
-        return const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFBF360C), Color(0xFFF4511E)],
-        );
-      case 'storm':
-        return const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF263238), Color(0xFF455A64)],
-        );
-      case 'chemical':
-        return const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
-        );
-      case 'landslide':
-        return const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF5D4037), Color(0xFF795548)],
-        );
-      default:
-        return const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFC62828), Color(0xFFE53935)],
-        );
-    }
-  }
-
-  IconData _disasterIcon(String type) {
-    switch (type.toLowerCase()) {
-      case 'flood':
-        return Icons.water;
-      case 'earthquake':
-        return Icons.crisis_alert;
-      case 'fire':
-        return Icons.local_fire_department;
-      case 'storm':
-        return Icons.thunderstorm;
-      case 'chemical':
-        return Icons.science;
-      case 'landslide':
-        return Icons.terrain;
-      default:
-        return Icons.warning_amber;
-    }
-  }
-
-  Color _severityColor(String s) {
-    switch (s.toLowerCase()) {
-      case 'critical':
-        return const Color(0xFFEF4444);
-      case 'high':
-        return const Color(0xFFF97316);
-      case 'medium':
-        return const Color(0xFFF59E0B);
-      case 'low':
-        return const Color(0xFF22C55E);
-      default:
-        return const Color(0xFF6B7280);
-    }
-  }
-
-  String _actionLabel(String severity) {
-    switch (severity.toLowerCase()) {
-      case 'critical':
-        return 'Evacuate';
-      case 'high':
-        return 'Stay Alert';
-      case 'medium':
-        return 'Monitor';
-      default:
-        return 'Inform';
-    }
-  }
 
   String _timeAgo(DateTime t) {
     final d = DateTime.now().difference(t);
@@ -407,7 +310,7 @@ class _HomePageState extends State<HomePage> {
                           _buildAlertsSection(
                             disasters.isEmpty ? [] : disasters,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 8),
                           _buildSafetyCheckIn(),
                           const SizedBox(height: 16),
                           _buildQuickStats(
@@ -839,7 +742,58 @@ class _HomePageState extends State<HomePage> {
 
   // ── Alerts Section ───────────────────────────────────────────────────────────
 
+  // ── Alert type helpers (for mock alert cards) ──────────────────────────────
+  IconData _alertTypeIcon(String type) {
+    switch (type) {
+      case 'flood':
+        return Icons.water_drop;
+      case 'fire':
+        return Icons.local_fire_department;
+      case 'earthquake':
+        return Icons.waves;
+      case 'tsunami':
+        return Icons.tsunami;
+      case 'storm':
+        return Icons.thunderstorm;
+      default:
+        return Icons.warning;
+    }
+  }
+
+  Color _alertTypeIconColor(String type) {
+    switch (type) {
+      case 'flood':
+        return const Color(0xFF3B82F6);
+      case 'fire':
+        return const Color(0xFFEF4444);
+      case 'earthquake':
+        return const Color(0xFF8B5CF6);
+      case 'tsunami':
+        return const Color(0xFF0EA5E9);
+      case 'storm':
+        return const Color(0xFF6366F1);
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Color _alertSeverityColor(String severity) {
+    switch (severity) {
+      case 'high':
+        return const Color(0xFFEF4444);
+      case 'medium':
+        return const Color(0xFFF59E0B);
+      case 'low':
+        return const Color(0xFF22C55E);
+      default:
+        return Colors.grey;
+    }
+  }
+
   Widget _buildAlertsSection(List<DisasterModel> disasters) {
+    // Show the first 3 mock alerts
+    final alertsToShow = mockAlerts.take(3).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -857,7 +811,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               TextButton(
-                onPressed: () {},
+                onPressed: () => widget.onNavigateToAlerts?.call(),
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
@@ -875,236 +829,114 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
-        if (disasters.isEmpty)
-          _buildEmptyAlerts()
-        else ...[
-          SizedBox(
-            height: 210,
-            child: PageView.builder(
-              controller: _pageCtrl,
-              itemCount: disasters.length,
-              onPageChanged: (i) => setState(() => _currentAlertPage = i),
-              itemBuilder: (_, i) => _buildAlertCard(disasters[i]),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              disasters.length,
-              (i) => AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: i == _currentAlertPage ? 20 : 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: i == _currentAlertPage
-                      ? _blue
-                      : const Color(0xFFD1D5DB),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-          ),
-          // Location + status row for current card
-          if (disasters.isNotEmpty && _currentAlertPage < disasters.length)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.location_on_outlined,
-                    size: 14,
-                    color: Color(0xFF6B7280),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    disasters[_currentAlertPage].affectedAreaIds
-                        .join(', ')
-                        .replaceAll('area-', '')
-                        .toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                  const Spacer(),
-                  const Icon(Icons.circle, size: 8, color: Color(0xFF22C55E)),
-                  const SizedBox(width: 4),
-                  Text(
-                    disasters[_currentAlertPage].status.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
+        // Alert list cards
+        ...alertsToShow.map((alert) => _buildMockAlertCard(alert)),
       ],
     );
   }
 
-  Widget _buildEmptyAlerts() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      height: 160,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.check_circle_outline,
-              color: Color(0xFF22C55E),
-              size: 36,
-            ),
-            SizedBox(height: 8),
-            Text(
-              'No active alerts in your area',
-              style: TextStyle(
-                color: Color(0xFF6B7280),
-                fontWeight: FontWeight.w500,
-              ),
+  Widget _buildMockAlertCard(AlertModel alert) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => AlertDetailPage(alert: alert)),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(left: 16, right: 16, bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildAlertCard(DisasterModel d) {
-    final grad = _disasterGradient(d.type);
-    final action = _actionLabel(d.severity);
-    final sevColor = _severityColor(d.severity);
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: BoxDecoration(
-        gradient: grad,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: grad.colors.first.withValues(alpha: 0.35),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // Background icon
-          Positioned(
-            right: -20,
-            bottom: -20,
-            child: Icon(
-              _disasterIcon(d.type),
-              size: 120,
-              color: Colors.white.withValues(alpha: 0.08),
+        child: Row(
+          children: [
+            // Type icon
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: _alertTypeIconColor(alert.type).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                _alertTypeIcon(alert.type),
+                color: _alertTypeIconColor(alert.type),
+                size: 22,
+              ),
             ),
-          ),
-          // Content
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Top badges row
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'Limited time!',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+            const SizedBox(width: 12),
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          alert.title,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111827),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: sevColor,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        d.severity.toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _alertSeverityColor(alert.severity),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          alert.severity[0].toUpperCase() +
+                              alert.severity.substring(1),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                // Title
-                Text(
-                  d.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    height: 1.3,
+                    ],
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 10),
-                // Action label + time
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: sevColor,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        action,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${alert.distanceKm} km away  •  ${_timeAgo(alert.issuedAt)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF9CA3AF),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _timeAgo(d.createdAt),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        fontSize: 11,
-                      ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    alert.shortAdvice,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF6B7280),
                     ),
-                  ],
-                ),
-              ],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right, color: Colors.grey.shade300, size: 20),
+          ],
+        ),
       ),
     );
   }
