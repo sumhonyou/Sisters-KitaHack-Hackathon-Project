@@ -73,8 +73,8 @@ class _SignupScreenState extends State<SignupScreen> {
           password: _passwordController.text.trim(),
           fullName: _nameController.text.trim(),
           phone: _phoneController.text.trim(),
-          latitude: latitude,
-          longitude: longitude,
+          areaLat: latitude,
+          areaLng: longitude,
         );
 
         // 3. Navigate to Home
