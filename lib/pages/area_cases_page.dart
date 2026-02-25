@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/area_model.dart';
 import '../models/reported_case_model.dart';
-import '../models/incident_model.dart'; // Severity + severityColor
+import '../models/severity.dart'; // Severity + severityColor
 import '../widgets/severity_legend.dart';
 import 'case_detail_page.dart';
 

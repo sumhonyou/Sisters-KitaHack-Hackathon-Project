@@ -52,21 +52,30 @@ class _SignupScreenState extends State<SignupScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       try {
-        // 1. Create Account
+        // 1. Request Location Access first (optional but recommended)
+        double? latitude;
+        double? longitude;
+        try {
+          await _requestLocationPermission();
+          Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          );
+          latitude = position.latitude;
+          longitude = position.longitude;
+        } catch (e) {
+          debugPrint("Location capture error: $e");
+          // Continue with null location if it fails or is denied
+        }
+
+        // 2. Create Account with location
         await _authService.signUpWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
           fullName: _nameController.text.trim(),
           phone: _phoneController.text.trim(),
+          latitude: latitude,
+          longitude: longitude,
         );
-
-        // 2. Request Location Access
-        try {
-          await _requestLocationPermission();
-        } catch (e) {
-          debugPrint("Location error: $e");
-          // Continue even if location fails
-        }
 
         // 3. Navigate to Home
         if (mounted) {

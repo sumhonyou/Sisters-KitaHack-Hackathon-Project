@@ -4,7 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/reported_case_model.dart';
 import '../models/area_model.dart';
-import '../models/incident_model.dart'; // for Severity + severityColor
+import '../models/severity.dart'; // for Severity + severityColor
 import '../services/firestore_service.dart';
 import '../widgets/app_header.dart';
 import '../widgets/severity_legend.dart';

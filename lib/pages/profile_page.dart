@@ -28,6 +28,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isSaving = false;
   bool _isUploadingPhoto = false;
   File? _pendingPhoto;
+  String _areaName = 'Loading...';
 
   // Edit controllers
   late TextEditingController _nameCtrl;
@@ -61,10 +62,13 @@ class _ProfilePageState extends State<ProfilePage> {
       if (currentUid == null) return;
       final doc = await _db.collection('users').doc(currentUid).get();
       if (doc.exists) {
+        final userData = UserModel.fromFirestore(doc);
         setState(() {
-          _user = UserModel.fromFirestore(doc);
+          _user = userData;
           _syncControllers();
         });
+        // Fetch area name
+        _loadAreaName(userData.homeAreaId);
       } else {
         // Seed a demo user
         final demo = UserModel(
@@ -91,6 +95,25 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     } catch (e) {
       debugPrint('Error loading user: $e');
+    }
+  }
+
+  Future<void> _loadAreaName(String areaId) async {
+    if (areaId.isEmpty) {
+      setState(() => _areaName = 'None');
+      return;
+    }
+    try {
+      final areaDoc = await _db.collection('areas').doc(areaId).get();
+      if (areaDoc.exists) {
+        setState(() => _areaName = areaDoc.data()?['name'] ?? 'Unknown Area');
+      } else {
+        // Compatibility for old format "area-XXXX"
+        final cleanId = areaId.replaceAll('area-', '').toUpperCase();
+        setState(() => _areaName = cleanId);
+      }
+    } catch (e) {
+      setState(() => _areaName = 'Error loading');
     }
   }
 
@@ -373,6 +396,88 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 26),
+            SizedBox(width: 8),
+            Text(
+              'Delete Account',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This action is PERMANENT and cannot be undone.',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'All your profile data and your login account will be completely removed from our system. You will need to sign up again if you wish to use the app in the future.',
+              style: TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF6B7280)),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              setState(() => _isSaving = true);
+              try {
+                await _auth.deleteCurrentUser();
+                if (mounted) {
+                  _showSnack('👋 Account deleted successfully', Colors.green);
+                  // Pop until we reach login or root
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil('/', (route) => false);
+                }
+              } catch (e) {
+                if (mounted) {
+                  setState(() => _isSaving = false);
+                  _showSnack('Failed to delete account: $e', Colors.red);
+                }
+              }
+            },
+            child: const Text(
+              'Delete Everything',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -780,11 +885,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _infoRow(Icons.badge_outlined, 'Full Name', _user!.fullName),
         _infoRow(Icons.email_outlined, 'Email', _user!.email),
         _infoRow(Icons.phone_outlined, 'Phone', _user!.phone),
-        _infoRow(
-          Icons.location_on_outlined,
-          'Home Area',
-          _user!.homeAreaId.replaceAll('area-', '').toUpperCase(),
-        ),
+        _infoRow(Icons.location_on_outlined, 'Home Area', _areaName),
         _infoRow(
           Icons.accessible_outlined,
           'Special Needs',
@@ -1018,6 +1119,14 @@ class _ProfilePageState extends State<ProfilePage> {
               : 'Public Account',
           color: const Color(0xFF22C55E),
           showArrow: false,
+        ),
+        const Divider(height: 1, color: Color(0xFFE5E7EB)),
+        _securityTile(
+          icon: Icons.delete_forever,
+          title: 'Delete Account',
+          subtitle: 'Irreversibly delete your data and account',
+          onTap: _showDeleteAccountDialog,
+          color: Colors.red,
         ),
       ],
     );

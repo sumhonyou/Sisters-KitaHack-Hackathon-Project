@@ -6,6 +6,7 @@ class AreaModel {
   final String name;
   final double centerLat;
   final double centerLng;
+  final double radiusKm;
 
   AreaModel({
     required this.id,
@@ -13,6 +14,7 @@ class AreaModel {
     required this.name,
     required this.centerLat,
     required this.centerLng,
+    this.radiusKm = 5.0,
   });
 
   factory AreaModel.fromFirestore(DocumentSnapshot doc) {
@@ -32,6 +34,14 @@ class AreaModel {
       name: d['name'] ?? 'Unknown Area',
       centerLat: lat,
       centerLng: lng,
+      radiusKm: (d['radiusKm'] as num?)?.toDouble() ?? 5.0,
     );
   }
+
+  Map<String, dynamic> toMap() => {
+    'areaId': areaId,
+    'name': name,
+    'center': GeoPoint(centerLat, centerLng),
+    'radiusKm': radiusKm,
+  };
 }

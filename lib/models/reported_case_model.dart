@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'incident_model.dart'; // re-uses Severity enum
+import 'severity.dart';
 
 class ReportedCase {
   final String id;
@@ -46,7 +46,6 @@ class ReportedCase {
     return Severity.low;
   }
 
-  // Also handle string-based severity
   static Severity _severityFromString(String s) {
     switch (s.toLowerCase()) {
       case 'critical':

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/area_model.dart';
 import '../models/reported_case_model.dart';
-import '../models/incident_model.dart'; // for Severity + severityColor
+import '../models/severity.dart'; // for Severity + severityColor
 import '../widgets/severity_legend.dart';
 
 class AreaCard extends StatelessWidget {
