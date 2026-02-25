@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Your API Keys
 const _geminiApiKey = 'AIzaSyDr5pYhrIyk77ofyJ7gSC88zGtiP8zS7Qg';
@@ -20,6 +21,7 @@ class Shelter {
   final String status;
   final List<String> tags;
   final String phone;
+  final String? imageURL;
 
   // Calculated fields
   double distanceMeters = double.infinity;
@@ -37,6 +39,7 @@ class Shelter {
     required this.status,
     required this.tags,
     required this.phone,
+    this.imageURL,
   });
 
   factory Shelter.fromFirestore(DocumentSnapshot doc) {
@@ -80,6 +83,7 @@ class Shelter {
       status: data['status']?.toString().toLowerCase() ?? 'closed',
       tags: parsedTags,
       phone: data['contactPhone'] ?? '',
+      imageURL: data['imageURL'],
     );
   }
 }
@@ -104,6 +108,8 @@ class _SafetyRouteNavigationScreenState
 
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
+
+  String _travelMode = 'DRIVE'; // 'DRIVE' or 'WALK'
 
   final String _mapStyle = '''
   [
@@ -234,51 +240,61 @@ class _SafetyRouteNavigationScreenState
       },
     };
 
-    for (var shelter in shelters) {
+    List<Future<void>> routeFutures = shelters.map((shelter) async {
       final destination = {
         "location": {
           "latLng": {"latitude": shelter.lat, "longitude": shelter.lng},
         },
       };
 
-      final response = await http.post(
-        Uri.parse('https://routes.googleapis.com/directions/v2:computeRoutes'),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': _googleMapsApiKey,
-          'X-Goog-FieldMask':
-              'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
-        },
-        body: jsonEncode({
-          "origin": origin,
-          "destination": destination,
-          "travelMode": "DRIVE",
-          "routingPreference": "TRAFFIC_AWARE",
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['routes'] != null && data['routes'].isNotEmpty) {
-          final route = data['routes'][0];
-          debugPrint(
-            "Route found for ${shelter.name}: ${route['duration']} and ${route['distanceMeters']} meters",
-          );
-
-          final durationStr = route['duration'] as String; // e.g. "356s"
-          shelter.etaSeconds =
-              int.tryParse(durationStr.replaceAll('s', '')) ?? 0;
-          shelter.distanceMeters =
-              (route['distanceMeters'] as num?)?.toDouble() ??
-              shelter.distanceMeters;
-          shelter.encodedPolyline = route['polyline']['encodedPolyline'];
-        }
-      } else {
-        debugPrint(
-          "Route API Error for ${shelter.name}: HTTP ${response.statusCode} - ${response.body}",
+      try {
+        final response = await http.post(
+          Uri.parse(
+            'https://routes.googleapis.com/directions/v2:computeRoutes',
+          ),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': _googleMapsApiKey,
+            'X-Goog-FieldMask':
+                'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
+          },
+          body: jsonEncode({
+            "origin": origin,
+            "destination": destination,
+            "travelMode": _travelMode,
+            "routingPreference": _travelMode == 'DRIVE'
+                ? "TRAFFIC_AWARE"
+                : "ROUTING_PREFERENCE_UNSPECIFIED",
+          }),
         );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['routes'] != null && data['routes'].isNotEmpty) {
+            final route = data['routes'][0];
+            debugPrint(
+              "Route found for ${shelter.name}: ${route['duration']} and ${route['distanceMeters']} meters",
+            );
+
+            final durationStr = route['duration'] as String; // e.g. "356s"
+            shelter.etaSeconds =
+                int.tryParse(durationStr.replaceAll('s', '')) ?? 0;
+            shelter.distanceMeters =
+                (route['distanceMeters'] as num?)?.toDouble() ??
+                shelter.distanceMeters;
+            shelter.encodedPolyline = route['polyline']['encodedPolyline'];
+          }
+        } else {
+          debugPrint(
+            "Route API Error for ${shelter.name}: HTTP ${response.statusCode} - ${response.body}",
+          );
+        }
+      } catch (e) {
+        debugPrint("Error calculating route for ${shelter.name}: $e");
       }
-    }
+    }).toList();
+
+    await Future.wait(routeFutures);
   }
 
   Future<List<Shelter>> _rankWithGemini(List<Shelter> candidates) async {
@@ -440,11 +456,15 @@ class _SafetyRouteNavigationScreenState
 
     // Move camera to fit route
     if (_mapController != null && _selectedShelter != null) {
-      LatLngBounds bounds = _boundsFromLatLngList([
-        LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-        LatLng(_selectedShelter!.lat, _selectedShelter!.lng),
-      ]);
-      _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+      try {
+        LatLngBounds bounds = _boundsFromLatLngList([
+          LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          LatLng(_selectedShelter!.lat, _selectedShelter!.lng),
+        ]);
+        _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+      } catch (e) {
+        debugPrint("Error animating camera: $e");
+      }
     }
   }
 
@@ -478,6 +498,22 @@ class _SafetyRouteNavigationScreenState
   String _formatDistance(double meters) {
     double miles = meters / 1609.34; // Alternatively /1000 for km
     return "${miles.toStringAsFixed(1)} mi away";
+  }
+
+  Future<void> _launchMapsNavigation(double lat, double lng) async {
+    final String navMode = _travelMode == 'DRIVE' ? 'd' : 'w';
+    final Uri googleMapsUrl = Uri.parse(
+      'google.navigation:q=$lat,$lng&mode=$navMode',
+    );
+    if (await canLaunchUrl(googleMapsUrl)) {
+      await launchUrl(googleMapsUrl);
+    } else {
+      // Fallback to web maps
+      final Uri webUrl = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=$navMode',
+      );
+      launchUrl(webUrl);
+    }
   }
 
   @override
@@ -542,6 +578,113 @@ class _SafetyRouteNavigationScreenState
                         myLocationEnabled: true,
                         myLocationButtonEnabled: false,
                       ),
+
+                      // Travel Mode Toggle
+                      Positioned(
+                        top: 16,
+                        left: 16,
+                        right: 16,
+                        child: SafeArea(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(30),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: SegmentedButton<String>(
+                                  segments: const [
+                                    ButtonSegment(
+                                      value: 'DRIVE',
+                                      icon: Icon(Icons.directions_car),
+                                      label: Text('Drive'),
+                                    ),
+                                    ButtonSegment(
+                                      value: 'WALK',
+                                      icon: Icon(Icons.directions_walk),
+                                      label: Text('Walk'),
+                                    ),
+                                  ],
+                                  selected: {_travelMode},
+                                  onSelectionChanged:
+                                      (Set<String> newSelection) async {
+                                        if (newSelection.first != _travelMode) {
+                                          setState(() {
+                                            _travelMode = newSelection.first;
+                                            _isLoading = true;
+                                            _loadingText =
+                                                "Recalculating routes...";
+                                          });
+
+                                          // Recalculate routes for the current candidates
+                                          await _calculateRoutesForCandidates(
+                                            _recommendedShelters.isEmpty
+                                                ? []
+                                                : _recommendedShelters,
+                                          );
+
+                                          if (mounted) {
+                                            setState(() {
+                                              _isLoading = false;
+                                              if (_selectedShelter != null) {
+                                                _updateMap();
+                                              }
+                                            });
+                                          }
+                                        }
+                                      },
+                                  style: ButtonStyle(
+                                    backgroundColor:
+                                        MaterialStateProperty.resolveWith<
+                                          Color
+                                        >((Set<MaterialState> states) {
+                                          if (states.contains(
+                                            MaterialState.selected,
+                                          )) {
+                                            return const Color(
+                                              0xFF13C05D,
+                                            ).withOpacity(0.2);
+                                          }
+                                          return Colors.white;
+                                        }),
+                                    iconColor:
+                                        MaterialStateProperty.resolveWith<
+                                          Color
+                                        >((Set<MaterialState> states) {
+                                          if (states.contains(
+                                            MaterialState.selected,
+                                          )) {
+                                            return const Color(0xFF13C05D);
+                                          }
+                                          return Colors.grey;
+                                        }),
+                                    foregroundColor:
+                                        MaterialStateProperty.resolveWith<
+                                          Color
+                                        >((Set<MaterialState> states) {
+                                          if (states.contains(
+                                            MaterialState.selected,
+                                          )) {
+                                            return const Color(0xFF13C05D);
+                                          }
+                                          return Colors.black87;
+                                        }),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
                       if (_selectedShelter != null)
                         Positioned(
                           bottom: 16,
@@ -568,8 +711,10 @@ class _SafetyRouteNavigationScreenState
                                     color: Colors.deepPurple[50],
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(
-                                    Icons.directions_car,
+                                  child: Icon(
+                                    _travelMode == 'DRIVE'
+                                        ? Icons.directions_car
+                                        : Icons.directions_walk,
                                     color: Colors.deepPurple,
                                   ),
                                 ),
@@ -594,6 +739,29 @@ class _SafetyRouteNavigationScreenState
                                         ),
                                       ),
                                     ],
+                                  ),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => _launchMapsNavigation(
+                                    _selectedShelter!.lat,
+                                    _selectedShelter!.lng,
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF13C05D),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    "Navigate",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -658,12 +826,19 @@ class _SafetyRouteNavigationScreenState
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(16),
                   ),
-                  child: Image.network(
-                    'https://images.unsplash.com/photo-1541625602330-2277a4c46182?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-                    height: 140,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
+                  child: shelter.imageURL != null
+                      ? Image.asset(
+                          shelter.imageURL!,
+                          height: 140,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        )
+                      : Image.network(
+                          'https://images.unsplash.com/photo-1541625602330-2277a4c46182?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                          height: 140,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
                 ),
                 Container(
                   height: 140,
