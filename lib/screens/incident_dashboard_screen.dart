@@ -1249,7 +1249,7 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
   }
 
   Widget _recentActivityCard() {
-    final twoDaysAgo = DateTime.now().subtract(const Duration(days: 2));
+    final oneDayAgo = DateTime.now().subtract(const Duration(days: 1));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1300,7 +1300,7 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
               .collection('disasters')
               .where(
                 'updatedAt',
-                isGreaterThanOrEqualTo: Timestamp.fromDate(twoDaysAgo),
+                isGreaterThanOrEqualTo: Timestamp.fromDate(oneDayAgo),
               )
               .orderBy('updatedAt', descending: true)
               .snapshots(),
@@ -1313,7 +1313,13 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
                 ),
               );
             }
-            final docs = snapshot.data?.docs ?? [];
+            final allRecentDocs = snapshot.data?.docs ?? [];
+            final docs = allRecentDocs.where((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              final cases = data['caseCount'] ?? 0;
+              return cases > 5;
+            }).toList();
+
             if (docs.isEmpty) {
               return Container(
                 width: double.infinity,
@@ -1324,7 +1330,7 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    'No active disasters in the last 48 hours.',
+                    'No active disasters with >5 cases in the last 24h.',
                     style: TextStyle(color: Colors.grey.shade400),
                   ),
                 ),

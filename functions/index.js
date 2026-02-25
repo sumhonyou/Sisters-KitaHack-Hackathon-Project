@@ -40,6 +40,7 @@ Requirements:
    - locationLabel: Short area or landmark name.
    - affectedAreaIds: List of unique areaIds from the grouped reports.
    - affectedCount: SUM of peopleAffected from the grouped reports.
+   - caseCount: Total number of individual reports grouped into this cluster.
    - updatedAt: The latest timestamp among the grouped reports in ISO format.
 
 Output Format: STRICT JSON ONLY. No markdown fences.
@@ -54,6 +55,7 @@ Output Format: STRICT JSON ONLY. No markdown fences.
       "locationLabel": "...",
       "affectedAreaIds": ["..."],
       "affectedCount": 0,
+      "caseCount": 0,
       "updatedAt": "..."
     }
   ]
@@ -143,6 +145,7 @@ async function aggregateDisasters() {
       locationLabel: d.locationLabel || finalTitle,
       affectedAreaIds: d.affectedAreaIds,
       affectedCount: d.affectedCount,
+      caseCount: d.caseCount || 0,
       updatedAt: Timestamp.fromDate(new Date(d.updatedAt))
     }, { merge: true });
   }
