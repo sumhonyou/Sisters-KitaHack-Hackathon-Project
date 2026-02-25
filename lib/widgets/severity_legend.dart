@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/incident_model.dart';
+import '../models/severity.dart';
 
 Color severityColor(Severity s) {
   switch (s) {
