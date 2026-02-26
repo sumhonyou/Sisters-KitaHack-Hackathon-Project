@@ -8,11 +8,13 @@ class AiService {
 
   Future<Map<String, dynamic>> summarizeIncidents(
     List<Map<String, dynamic>> incidents,
+    Map<String, String> areaNames,
   ) async {
-    if (incidents.isEmpty)
+    if (incidents.isEmpty) {
       return {"summary": "No incidents to analyze.", "groups": []};
+    }
 
-    final prompt = _buildPrompt(incidents);
+    final prompt = _buildPrompt(incidents, areaNames);
 
     try {
       final response = await http.post(
@@ -51,28 +53,39 @@ class AiService {
     }
   }
 
-  String _buildPrompt(List<Map<String, dynamic>> incidents) {
+  String _buildPrompt(
+    List<Map<String, dynamic>> incidents,
+    Map<String, String> areaNames,
+  ) {
     String incidentDetails = incidents
         .map((i) {
-          return "- ID: ${i['caseId']}, Category: ${i['category']}, Severity: ${i['severity']}, Area: ${i['areaId']}, Affected: ${i['peopleAffected']}, Description: ${i['description']}";
+          final areaId = i['areaId'] ?? '';
+          final areaName = areaNames[areaId] ?? areaId;
+          return "- ID: ${i['caseId']}, Category: ${i['category']}, Severity: ${i['severity']}, Area: $areaName ($areaId), Affected: ${i['peopleAffected']}, Description: ${i['description']}";
         })
         .join("\n");
 
     return """
 You are a disaster management analyst. Analyze the following recent incidents.
-Group related incidents that are reported from the same areas.
-For each group, provide a summary of the situation, the total people affected in that area, and the collective severity level.
+Group related incidents that are reported from the same areas into "disasters".
+Use the human-readable Area names provided in the incident details for your summary and titles.
 
 Return strictly a JSON object with the following structure:
 {
   "summary": "A high-level overview of all incidents combined",
   "groups": [
     {
-      "area": "Area Name",
+      "disasterId": "unique_string_id",
+      "Type": "Category of disaster (e.g. Flood, Fire, Storm)",
+      "severity": "Severity level (e.g. Critical, High, Medium, Low)",
+      "title": "A short descriptive title for the disaster",
+      "description": "A summary of the situation",
+      "affectedAreaIds": ["list", "of", "areaIds"],
+      "Status": "Active",
+      "updatedAt": "Current ISO timestamp",
       "incidentCount": 5,
       "totalAffected": 20,
-      "collectiveSeverity": "High",
-      "analysis": "A detailed analysis of what's happening in this area",
+      "analysis": "A detailed analysis of what's happening",
       "similarCasesTracked": "Explanation of how these cases are similar"
     }
   ],
