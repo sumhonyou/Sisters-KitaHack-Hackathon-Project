@@ -4,17 +4,16 @@ import 'package:http/http.dart' as http;
 class AiService {
   final String _apiKey = "AIzaSyDr5pYhrIyk77ofyJ7gSC88zGtiP8zS7Qg";
   final String _endpoint =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
   Future<Map<String, dynamic>> summarizeIncidents(
     List<Map<String, dynamic>> incidents,
-    Map<String, String> areaNames,
   ) async {
     if (incidents.isEmpty) {
       return {"summary": "No incidents to analyze.", "groups": []};
     }
 
-    final prompt = _buildPrompt(incidents, areaNames);
+    final prompt = _buildPrompt(incidents);
 
     try {
       final response = await http.post(
@@ -53,39 +52,28 @@ class AiService {
     }
   }
 
-  String _buildPrompt(
-    List<Map<String, dynamic>> incidents,
-    Map<String, String> areaNames,
-  ) {
+  String _buildPrompt(List<Map<String, dynamic>> incidents) {
     String incidentDetails = incidents
         .map((i) {
-          final areaId = i['areaId'] ?? '';
-          final areaName = areaNames[areaId] ?? areaId;
-          return "- ID: ${i['caseId']}, Category: ${i['category']}, Severity: ${i['severity']}, Area: $areaName ($areaId), Affected: ${i['peopleAffected']}, Description: ${i['description']}";
+          return "- ID: ${i['caseId']}, Category: ${i['category']}, Severity: ${i['severity']}, Area: ${i['areaId']}, Affected: ${i['peopleAffected']}, Description: ${i['description']}";
         })
         .join("\n");
 
     return """
 You are a disaster management analyst. Analyze the following recent incidents.
-Group related incidents that are reported from the same areas into "disasters".
-Use the human-readable Area names provided in the incident details for your summary and titles.
+Group related incidents that are reported from the same areas.
+For each group, provide a summary of the situation, the total people affected in that area, and the collective severity level.
 
 Return strictly a JSON object with the following structure:
 {
   "summary": "A high-level overview of all incidents combined",
   "groups": [
     {
-      "disasterId": "unique_string_id",
-      "Type": "Category of disaster (e.g. Flood, Fire, Storm)",
-      "severity": "Severity level (e.g. Critical, High, Medium, Low)",
-      "title": "A short descriptive title for the disaster",
-      "description": "A summary of the situation",
-      "affectedAreaIds": ["list", "of", "areaIds"],
-      "Status": "Active",
-      "updatedAt": "Current ISO timestamp",
+      "area": "Area Name",
       "incidentCount": 5,
       "totalAffected": 20,
-      "analysis": "A detailed analysis of what's happening",
+      "collectiveSeverity": "High",
+      "analysis": "A detailed analysis of what's happening in this area",
       "similarCasesTracked": "Explanation of how these cases are similar"
     }
   ],

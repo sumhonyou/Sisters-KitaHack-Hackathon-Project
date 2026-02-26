@@ -1,11 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'firestore_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirestoreService _firestoreService = FirestoreService();
 
   // Get current user
   User? get currentUser => _auth.currentUser;
@@ -29,13 +27,16 @@ class AuthService {
   }
 
   // Sign up with email and password
+  // Enhanced to also create an area entry as requested.
   Future<UserCredential> signUpWithEmailAndPassword({
     required String email,
     required String password,
     required String fullName,
     required String phone,
-    double? latitude,
-    double? longitude,
+    String? areaName, // Optional area name
+    double? areaLat, // Optional area latitude
+    double? areaLng, // Optional area longitude
+    double? areaRadiusKm, // Optional area radius
   }) async {
     try {
       // 1. Create user in Firebase Auth
@@ -44,39 +45,32 @@ class AuthService {
         password: password,
       );
 
-      // 2. Determine nearest area or create new one if location is provided
-      String homeAreaId = '';
-      if (latitude != null && longitude != null) {
-        final areaRes = await _firestoreService.getOrCreateAreaId(
-          latitude,
-          longitude,
-        );
-        homeAreaId = areaRes.$1;
-      }
-
-      // 3. Add user details to Firestore
-      if (result.user != null) {
-        await _firestore.collection('users').doc(result.user!.uid).set({
+      final uid = result.user?.uid;
+      if (uid != null) {
+        // 2. Add user details to Firestore 'users' collection
+        await _firestore.collection('users').doc(uid).set({
           'fullName': fullName,
           'email': email,
           'phone': phone,
           'createdAt': FieldValue.serverTimestamp(),
-          'uid': result.user!.uid,
-          'homeAreaId': homeAreaId,
-          'role': 'public',
-          'disability': false,
-          'emergencyContacts': [],
+          'uid': uid,
+        });
+
+        // 3. Add area details to Firestore 'areas' collection
+        // We use a new doc for the area or link it to the user.
+        // The user mentioned an 'areas' table with areaId, center, name, radiusKm.
+        final areaRef = _firestore.collection('areas').doc();
+        await areaRef.set({
+          'areaId': areaRef.id,
+          'name': areaName ?? 'Default Area',
+          'center': (areaLat != null && areaLng != null)
+              ? GeoPoint(areaLat, areaLng)
+              : const GeoPoint(3.1390, 101.6869), // Default to KL if missing
+          'radiusKm': areaRadiusKm ?? 5.0,
         });
       }
 
       return result;
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'email-already-in-use') {
-        throw 'This email is already registered in our authentication system. '
-            'If you have previously deleted your data from the database, the account login still exists. '
-            'Please try logging in instead, or use a different email.';
-      }
-      rethrow;
     } catch (e) {
       rethrow;
     }

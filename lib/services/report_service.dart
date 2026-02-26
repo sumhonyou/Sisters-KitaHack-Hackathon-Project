@@ -3,13 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:geolocator/geolocator.dart';
-import 'firestore_service.dart';
 
 class ReportService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
-  final FirestoreService _firestoreService = FirestoreService();
 
   /// Get current GPS position (requests permission if needed).
   Future<Position?> getCurrentLocation() async {
@@ -29,8 +27,6 @@ class ReportService {
       return null;
     }
   }
-
-  // _resolveArea removed in favor of _firestoreService.getOrCreateAreaId
 
   /// Upload a list of local image/video files to Firebase Storage.
   /// Returns a list of download URLs.
@@ -68,21 +64,17 @@ class ReportService {
         ? await _uploadMedia(caseId, mediaFiles)
         : <String>[];
 
-    // Resolve area
-    String areaId = 'unknown';
-    String areaName = 'Unknown Location';
-    if (lat != null && lng != null) {
-      final res = await _firestoreService.getOrCreateAreaId(lat, lng);
-      areaId = res.$1;
-      areaName = res.$2;
-    }
+    // Best-effort area name (just lat/lng string for now)
+    // In a real app, this might look up against the 'areas' collection
+    final areaId = (lat != null && lng != null)
+        ? '${lat.toStringAsFixed(3)},${lng.toStringAsFixed(3)}'
+        : 'unknown';
 
     await docRef.set({
       'caseId': caseId,
       'reporterUid': uid,
       'category': category,
       'checkIn': checkIn,
-      'locationLabel': areaName,
       'location': (lat != null && lng != null) ? GeoPoint(lat, lng) : null,
       'areaId': areaId,
       'severity': severity,

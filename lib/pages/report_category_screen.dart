@@ -4,83 +4,80 @@ import 'package:kitahack/pages/report_from_screen.dart';
 class ReportCategoryScreen extends StatelessWidget {
   const ReportCategoryScreen({super.key});
 
-  static const _categories = [
-    // Flood
-    _Category('Flood', Icons.water, Color(0xFF1565C0), Color(0xFFEDF4FB)),
-    // Fire
-    _Category(
-      'Fire',
-      Icons.local_fire_department,
-      Color(0xFFB71C1C),
-      Color(0xFFFDF0F0),
-    ),
-    // Storm
-    _Category(
-      'Storm',
-      Icons.thunderstorm,
-      Color(0xFF4527A0),
-      Color(0xFFF2F0FB),
-    ),
-    // Earthquake
-    _Category(
-      'Earthquake',
-      Icons.crisis_alert,
-      Color(0xFF6D4C41),
-      Color(0xFFF8F3EE),
-    ),
-    // Tsunami
-    _Category('Tsunami', Icons.waves, Color(0xFF00696D), Color(0xFFEDF8F9)),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    // List of disaster categories
+    final List<_Category> categories = [
+      const _Category(
+        'Flood',
+        Icons.water,
+        Color(0xFF1976D2),
+        Color(0xFFE3F2FD),
+      ),
+      const _Category(
+        'Fire',
+        Icons.local_fire_department,
+        Color(0xFFD32F2F),
+        Color(0xFFFFEBEE),
+      ),
+      const _Category(
+        'Storm',
+        Icons.thunderstorm,
+        Color(0xFF7B1FA2),
+        Color(0xFFF3E5F5),
+      ),
+      const _Category(
+        'Earthquake',
+        Icons.crisis_alert,
+        Color(0xFF5D4037),
+        Color(0xFFEFEBE9),
+      ),
+      const _Category(
+        'Tsunami',
+        Icons.waves,
+        Color(0xFF0097A7),
+        Color(0xFFE0F7FA),
+      ),
+    ];
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
         title: const Text(
-          'Report Incident',
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
+          'Report Disaster',
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
       ),
       body: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Select disaster type',
-              style: TextStyle(fontSize: 14, color: Colors.black54),
+              'What happened?',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
+            const Text(
+              'Choose a category to start your report.',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
             Expanded(
               child: ListView.separated(
-                itemCount: _categories.length,
-                separatorBuilder: (_, s) => const SizedBox(height: 14),
-                itemBuilder: (context, i) {
-                  final cat = _categories[i];
-                  return _CategoryCard(
-                    category: cat,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ReportFormScreen(
-                          category: cat.label,
-                          categoryIcon: cat.icon,
-                          categoryColor: cat.color,
-                          categoryBg: cat.bg,
-                        ),
-                      ),
-                    ),
-                  );
+                itemCount: categories.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 16),
+                itemBuilder: (context, index) {
+                  final cat = categories[index];
+                  return _buildCategoryCard(context, cat);
                 },
               ),
             ),
@@ -89,9 +86,60 @@ class ReportCategoryScreen extends StatelessWidget {
       ),
     );
   }
-}
 
-// ─── Data class ─────────────────────────────────────────────────────────────
+  Widget _buildCategoryCard(BuildContext context, _Category cat) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ReportFormScreen(category: cat.label),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(color: Colors.grey.shade100),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cat.bg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(cat.icon, color: cat.color, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                cat.label,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey.shade400),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _Category {
   final String label;
@@ -100,102 +148,4 @@ class _Category {
   final Color bg;
 
   const _Category(this.label, this.icon, this.color, this.bg);
-}
-
-// ─── Card widget ────────────────────────────────────────────────────────────
-
-class _CategoryCard extends StatelessWidget {
-  final _Category category;
-  final VoidCallback onTap;
-
-  const _CategoryCard({required this.category, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: category.bg,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        splashColor: category.color.withValues(alpha: 0.15),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: category.color.withValues(alpha: 0.25),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: category.color.withValues(alpha: 0.12),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Icon bubble — white circle so icon pops on coloured bg
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(category.icon, color: category.color, size: 30),
-              ),
-              const SizedBox(width: 18),
-              // Label
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      category.label,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: category.color,
-                      ),
-                    ),
-                    Text(
-                      _subtitle(category.label),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: category.color.withValues(alpha: 0.65),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: category.color.withValues(alpha: 0.6),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _subtitle(String label) {
-    switch (label) {
-      case 'Flood':
-        return 'Rising water levels, inundation';
-      case 'Fire':
-        return 'Building fire, wildfire, smoke';
-      case 'Storm':
-        return 'Heavy rain, strong winds';
-      case 'Earthquake':
-        return 'Ground shaking, tremors';
-      case 'Tsunami':
-        return 'Coastal wave surge';
-      default:
-        return '';
-    }
-  }
 }
