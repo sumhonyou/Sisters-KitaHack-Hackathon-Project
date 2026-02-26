@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../models/incident_model.dart';
 import '../models/reporter_model.dart';
 import '../models/disaster_model.dart';
@@ -68,15 +69,15 @@ class FirestoreService {
   }
 
   Stream<List<DisasterModel>> disastersStream({String? status}) {
-    Query query = _db
-        .collection('disasters')
-        .orderBy('createdAt', descending: true);
+    Query query = _db.collection('disasters');
     if (status != null && status.isNotEmpty) {
       query = query.where('status', isEqualTo: status);
     }
-    return query.snapshots().map(
-      (snap) => snap.docs.map(DisasterModel.fromFirestore).toList(),
-    );
+    return query.snapshots().map((snap) {
+      final list = snap.docs.map(DisasterModel.fromFirestore).toList();
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    });
   }
 
   Stream<List<ShelterModel>> sheltersStream({String? status}) {
@@ -179,8 +180,11 @@ class FirestoreService {
         !needPosts &&
         !needCases &&
         !needAreas) {
+      debugPrint('FirestoreService: Database already has data. Skipping seed.');
       return;
     }
+
+    debugPrint('FirestoreService: Seeding database with sample data...');
 
     // ── Seed posts + comments ────────────────────────────────────────────────
     if (needPosts) {

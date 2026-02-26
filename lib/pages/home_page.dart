@@ -6,6 +6,7 @@ import '../models/shelter_model.dart';
 import '../services/firestore_service.dart';
 import 'alert_detail_page.dart';
 import 'profile_page.dart';
+import '../services/notification_service.dart';
 
 class HomePage extends StatefulWidget {
   final VoidCallback? onNavigateToMap;
@@ -283,6 +284,13 @@ class _HomePageState extends State<HomePage> {
       body: StreamBuilder<List<DisasterModel>>(
         stream: _fs.disastersStream(),
         builder: (ctx, disasterSnap) {
+          if (disasterSnap.hasError) {
+            return Center(child: Text('Database Error: ${disasterSnap.error}'));
+          }
+          if (disasterSnap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
           return StreamBuilder<List<ShelterModel>>(
             stream: _fs.sheltersStream(),
             builder: (ctx, shelterSnap) {
@@ -310,6 +318,7 @@ class _HomePageState extends State<HomePage> {
                           _buildAlertsSection(
                             disasters.isEmpty ? [] : disasters,
                           ),
+                          _buildDemoTools(),
                           const SizedBox(height: 8),
                           _buildSafetyCheckIn(),
                           const SizedBox(height: 16),
@@ -740,6 +749,126 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildDemoTools() {
+    return Column(
+      children: [
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.campaign, color: Colors.red),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Demo: Real Notification',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                    Text(
+                      'Trigger a real OS-level alert',
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  debugPrint('HomePage: TRIGGER button pressed');
+                  await NotificationService().requestPermissions();
+                  await NotificationService().showEmergencyAlert(
+                    title: '⚠️ EMERGENCY: Flood Warning',
+                    body:
+                        'Severe flooding detected in Klang Valley. Immediate evacuation advised.',
+                    alertId: '1',
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                child: const Text('TRIGGER'),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.storage_rounded, color: Colors.blue),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Debug: Seed Database',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
+                    Text(
+                      'Populate Firestore with sample data',
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  debugPrint('HomePage: SEED button pressed');
+                  await FirestoreService().seedSampleDataIfEmpty();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Database seeded successfully! Try restarting app.',
+                        ),
+                      ),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                child: const Text('SEED'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   // ── Alerts Section ───────────────────────────────────────────────────────────
 
   // ── Alert type helpers (for mock alert cards) ──────────────────────────────
@@ -791,8 +920,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildAlertsSection(List<DisasterModel> disasters) {
-    // Show the first 3 mock alerts
-    final alertsToShow = mockAlerts.take(3).toList();
+    // Show the first 4 active disasters from the database
+    final alertsToShow = disasters
+        .where((d) => d.status == 'active')
+        .take(4)
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -829,15 +961,48 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
-        // Alert list cards
-        ...alertsToShow.map((alert) => _buildMockAlertCard(alert)),
+        if (alertsToShow.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Text(
+              'No active alerts in your area right now.',
+              style: TextStyle(color: Colors.grey, fontSize: 13),
+            ),
+          )
+        else
+          // Alert list cards from Database
+          ...alertsToShow.map((disaster) => _buildDisasterCard(disaster)),
       ],
     );
   }
 
-  Widget _buildMockAlertCard(AlertModel alert) {
+  Widget _buildDisasterCard(DisasterModel disaster) {
     return GestureDetector(
       onTap: () {
+        // Find corresponding mock alert or create a temp one for navigation
+        final alert = AlertModel(
+          id: disaster.id,
+          title: disaster.title,
+          description: disaster.description,
+          type: disaster.type,
+          severity: disaster.severity,
+          shortAdvice: disaster.description.length > 40
+              ? '${disaster.description.substring(0, 37)}...'
+              : disaster.description,
+          locationName: 'Local Area',
+          distanceKm: 1.5,
+          issuedAt: disaster.createdAt,
+          lat: disaster.center?.latitude ?? 3.1390,
+          lng: disaster.center?.longitude ?? 101.6869,
+          recommendedActions: const [
+            'Avoid the affected area if possible',
+            'Stay tuned to local news for updates',
+            'Follow instructions from emergency personnel',
+          ],
+          nearbyShelters: const [],
+          officialSource: 'Civil Defense Department',
+        );
+
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => AlertDetailPage(alert: alert)),
@@ -864,12 +1029,14 @@ class _HomePageState extends State<HomePage> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: _alertTypeIconColor(alert.type).withValues(alpha: 0.1),
+                color: _alertTypeIconColor(
+                  disaster.type,
+                ).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                _alertTypeIcon(alert.type),
-                color: _alertTypeIconColor(alert.type),
+                _alertTypeIcon(disaster.type),
+                color: _alertTypeIconColor(disaster.type),
                 size: 22,
               ),
             ),
@@ -883,7 +1050,7 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Expanded(
                         child: Text(
-                          alert.title,
+                          disaster.title,
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -897,12 +1064,14 @@ class _HomePageState extends State<HomePage> {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: _alertSeverityColor(alert.severity),
+                          color: _alertSeverityColor(disaster.severity),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          alert.severity[0].toUpperCase() +
-                              alert.severity.substring(1),
+                          disaster.severity.isNotEmpty
+                              ? disaster.severity[0].toUpperCase() +
+                                    disaster.severity.substring(1)
+                              : 'Alert',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -914,7 +1083,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${alert.distanceKm} km away  •  ${_timeAgo(alert.issuedAt)}',
+                    '1.5 km away  •  ${_timeAgo(disaster.createdAt)}',
                     style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF9CA3AF),
@@ -922,7 +1091,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    alert.shortAdvice,
+                    disaster.description,
                     style: const TextStyle(
                       fontSize: 13,
                       color: Color(0xFF6B7280),

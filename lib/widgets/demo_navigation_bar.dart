@@ -30,8 +30,20 @@ class DemoNavigationBar extends StatelessWidget {
                 _buildButton('Alert Detail'),
                 const SizedBox(width: 8),
                 _buildButton('Banner Popup'),
-                const SizedBox(width: 8),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
                 _buildButton('Phone Home Screen'),
+                const SizedBox(width: 8),
+                _buildButton('Lock Screen'),
+                const SizedBox(width: 8),
+                _buildButton('Lock Screen (Expanded)'),
               ],
             ),
           ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/alert_model.dart';
+import '../models/disaster_model.dart';
+import '../services/firestore_service.dart';
 import 'alert_detail_page.dart';
 
 class AlertsPage extends StatefulWidget {
@@ -14,6 +16,7 @@ class _AlertsPageState extends State<AlertsPage> {
   String _selectedSort = 'Nearby';
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  final FirestoreService _fs = FirestoreService();
 
   final List<String> _categories = [
     'All',
@@ -36,25 +39,28 @@ class _AlertsPageState extends State<AlertsPage> {
     super.dispose();
   }
 
-  List<AlertModel> get _filteredAlerts {
-    List<AlertModel> results = List.from(mockAlerts);
+  List<DisasterModel> _getFilteredDisasters(List<DisasterModel> disasters) {
+    List<DisasterModel> results = List.from(disasters);
 
     // Category filter
     if (_selectedCategory != 'All') {
       results = results
-          .where((a) => a.type.toLowerCase() == _selectedCategory.toLowerCase())
+          .where(
+            (a) =>
+                a.type.trim().toLowerCase() ==
+                _selectedCategory.trim().toLowerCase(),
+          )
           .toList();
     }
 
     // Search filter
-    if (_searchQuery.isNotEmpty) {
+    if (_searchQuery.trim().isNotEmpty) {
+      final q = _searchQuery.trim().toLowerCase();
       results = results
           .where(
             (a) =>
-                a.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                a.locationName.toLowerCase().contains(
-                  _searchQuery.toLowerCase(),
-                ),
+                a.title.toLowerCase().contains(q) ||
+                a.description.toLowerCase().contains(q),
           )
           .toList();
     }
@@ -62,16 +68,16 @@ class _AlertsPageState extends State<AlertsPage> {
     // Sort
     switch (_selectedSort) {
       case 'Nearby':
-        results.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+        // Distance sort could be added here if user location is available
         break;
       case 'High Severity':
-        const order = {'high': 0, 'medium': 1, 'low': 2};
+        const order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3};
         results.sort(
-          (a, b) => (order[a.severity] ?? 3).compareTo(order[b.severity] ?? 3),
+          (a, b) => (order[a.severity] ?? 4).compareTo(order[b.severity] ?? 4),
         );
         break;
       case 'Last 24 Hours':
-        results.sort((a, b) => b.issuedAt.compareTo(a.issuedAt));
+        results.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         break;
     }
 
@@ -136,225 +142,278 @@ class _AlertsPageState extends State<AlertsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filteredAlerts;
+    return StreamBuilder<List<DisasterModel>>(
+      stream: _fs.disastersStream(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(child: Text('Database Error: ${snapshot.error}')),
+          );
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Header ──
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Text(
-                'Alerts',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF111827),
-                ),
-              ),
-            ),
+        final disasters = snapshot.data ?? [];
+        final filtered = _getFilteredDisasters(disasters);
 
-            const SizedBox(height: 16),
-
-            // ── Search bar ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                  decoration: InputDecoration(
-                    hintText: 'Search location or keyword',
-                    hintStyle: TextStyle(
-                      color: Colors.grey.shade400,
-                      fontSize: 14,
-                    ),
-                    prefixIcon: Icon(
-                      Icons.search,
-                      color: Colors.grey.shade400,
-                      size: 20,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+        return Scaffold(
+          backgroundColor: const Color(0xFFF3F4F6),
+          body: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Header ──
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Text(
+                    'Alerts',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF111827),
                     ),
                   ),
                 ),
-              ),
-            ),
 
-            const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-            // ── Category chips ──
-            SizedBox(
-              height: 36,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: _categories.length,
-                separatorBuilder: (_, _i) => const SizedBox(width: 8),
-                itemBuilder: (context, i) {
-                  final cat = _categories[i];
-                  final selected = cat == _selectedCategory;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedCategory = cat),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? const Color(0xFF1A56DB)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: selected
-                              ? const Color(0xFF1A56DB)
-                              : const Color(0xFFD1D5DB),
+                // ── Search bar ──
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
                         ),
-                      ),
-                      child: Text(
-                        cat,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: selected
-                              ? Colors.white
-                              : const Color(0xFF374151),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (v) => setState(() => _searchQuery = v),
+                      decoration: InputDecoration(
+                        hintText: 'Search location or keyword',
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 14,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: Colors.grey.shade400,
+                          size: 20,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
-            // ── Scroll indicator ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.chevron_left,
-                    size: 16,
-                    color: Color(0xFF9CA3AF),
                   ),
-                  Expanded(
-                    child: Container(
-                      height: 3,
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE5E7EB),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: FractionallySizedBox(
-                        alignment: Alignment.centerLeft,
-                        widthFactor: 0.6,
-                        child: Container(
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── Category chips ──
+                SizedBox(
+                  height: 36,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: _categories.length,
+                    separatorBuilder: (_, i) => const SizedBox(width: 8),
+                    itemBuilder: (context, i) {
+                      final cat = _categories[i];
+                      final selected = cat == _selectedCategory;
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedCategory = cat),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF9CA3AF),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.chevron_right,
-                    size: 16,
-                    color: Color(0xFF9CA3AF),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // ── Sort chips ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: _sortOptions.map((opt) {
-                  final selected = opt == _selectedSort;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedSort = opt),
-                      child: Text(
-                        opt,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w400,
-                          color: selected
-                              ? const Color(0xFF111827)
-                              : const Color(0xFF9CA3AF),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // ── Alert cards ──
-            Expanded(
-              child: filtered.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.notifications_off_outlined,
-                            size: 54,
-                            color: Colors.grey.shade300,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No alerts found',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey.shade500,
+                            color: selected
+                                ? const Color(0xFF1A56DB)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: selected
+                                  ? const Color(0xFF1A56DB)
+                                  : const Color(0xFFD1D5DB),
                             ),
                           ),
-                        ],
+                          child: Text(
+                            cat,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: selected
+                                  ? Colors.white
+                                  : const Color(0xFF374151),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                // ── Scroll indicator ──
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.chevron_left,
+                        size: 16,
+                        color: Color(0xFF9CA3AF),
                       ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: filtered.length,
-                      itemBuilder: (context, i) => _buildAlertCard(filtered[i]),
-                    ),
+                      Expanded(
+                        child: Container(
+                          height: 3,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE5E7EB),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: 0.6,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF9CA3AF),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: Color(0xFF9CA3AF),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // ── Sort chips ──
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: _sortOptions.map((opt) {
+                      final selected = opt == _selectedSort;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: GestureDetector(
+                          onTap: () => setState(() => _selectedSort = opt),
+                          child: Text(
+                            opt,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
+                              color: selected
+                                  ? const Color(0xFF111827)
+                                  : const Color(0xFF9CA3AF),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // ── Alert cards ──
+                Expanded(
+                  child: filtered.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.notifications_off_outlined,
+                                size: 54,
+                                color: Colors.grey.shade300,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No alerts found${disasters.isNotEmpty ? ' (Total: ${disasters.length})' : ''}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                              if (disasters.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    'Try changing category or search',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: filtered.length,
+                          itemBuilder: (context, i) =>
+                              _buildAlertCard(filtered[i]),
+                        ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildAlertCard(AlertModel alert) {
+  Widget _buildAlertCard(DisasterModel disaster) {
     return GestureDetector(
       onTap: () {
+        final alert = AlertModel(
+          id: disaster.id,
+          title: disaster.title,
+          description: disaster.description,
+          type: disaster.type,
+          severity: disaster.severity,
+          shortAdvice: disaster.description.length > 40
+              ? '${disaster.description.substring(0, 37)}...'
+              : disaster.description,
+          locationName: 'Local Area',
+          distanceKm: 1.5,
+          issuedAt: disaster.createdAt,
+          lat: disaster.center?.latitude ?? 3.1390,
+          lng: disaster.center?.longitude ?? 101.6869,
+          recommendedActions: const [
+            'Avoid the affected area if possible',
+            'Stay tuned to local news for updates',
+          ],
+          nearbyShelters: const [],
+          officialSource: 'Civil Defense Department',
+        );
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => AlertDetailPage(alert: alert)),
@@ -381,12 +440,12 @@ class _AlertsPageState extends State<AlertsPage> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: _typeIconColor(alert.type).withValues(alpha: 0.1),
+                color: _typeIconColor(disaster.type).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                _typeIcon(alert.type),
-                color: _typeIconColor(alert.type),
+                _typeIcon(disaster.type),
+                color: _typeIconColor(disaster.type),
                 size: 22,
               ),
             ),
@@ -400,7 +459,7 @@ class _AlertsPageState extends State<AlertsPage> {
                     children: [
                       Expanded(
                         child: Text(
-                          alert.title,
+                          disaster.title,
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -414,12 +473,14 @@ class _AlertsPageState extends State<AlertsPage> {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: _severityColor(alert.severity),
+                          color: _severityColor(disaster.severity),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          alert.severity[0].toUpperCase() +
-                              alert.severity.substring(1),
+                          disaster.severity.isNotEmpty
+                              ? disaster.severity[0].toUpperCase() +
+                                    disaster.severity.substring(1)
+                              : 'Alert',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -431,7 +492,7 @@ class _AlertsPageState extends State<AlertsPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${alert.distanceKm} km away  •  ${_timeAgo(alert.issuedAt)}',
+                    '1.5 km away  •  ${_timeAgo(disaster.createdAt)}',
                     style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF9CA3AF),
@@ -439,7 +500,7 @@ class _AlertsPageState extends State<AlertsPage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    alert.shortAdvice,
+                    disaster.description,
                     style: const TextStyle(
                       fontSize: 13,
                       color: Color(0xFF6B7280),

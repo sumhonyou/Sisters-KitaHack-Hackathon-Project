@@ -4,9 +4,19 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kitahack/firebase_options.dart';
 import 'package:kitahack/pages/login_screen.dart';
 
+import 'package:kitahack/services/notification_service.dart';
+import 'package:kitahack/services/firestore_service.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialize notifications
+  await NotificationService().init();
+
+  // Seed sample data if database is empty (for demo purposes)
+  await FirestoreService().seedSampleDataIfEmpty();
+
   runApp(const MyApp());
 }
 
@@ -16,6 +26,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: NotificationService().navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'CityGuard',
       theme: ThemeData(

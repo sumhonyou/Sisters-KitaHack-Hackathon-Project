@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/alert_model.dart';
+import '../models/disaster_model.dart';
+import '../services/firestore_service.dart';
 import '../pages/alert_detail_page.dart';
 
 /// A full-screen overlay widget that shows a disaster alert banner
@@ -34,38 +36,35 @@ class _DisasterBannerOverlayState extends State<DisasterBannerOverlay>
   late Animation<Offset> _slideAnimation;
   Timer? _autoDismissTimer;
   bool _dismissed = false;
-
-  // Pick the first high-severity mock alert (or null)
-  AlertModel? get _highRiskAlert {
-    try {
-      return mockAlerts.firstWhere((a) => a.severity == 'high');
-    } catch (_) {
-      return null;
-    }
-  }
+  final FirestoreService _fs = FirestoreService();
 
   @override
   void initState() {
     super.initState();
-
     _slideController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
-
     _slideAnimation =
         Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero).animate(
           CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
         );
+  }
 
-    // Show banner after a short delay so the user sees the page first
-    if (_highRiskAlert != null || widget.forceShow) {
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (mounted && !_dismissed) {
-          _slideController.forward();
-          _startAutoDismiss();
-        }
-      });
+  void _checkAndShowBanner(DisasterModel? alert) {
+    if ((alert != null || widget.forceShow) && !_dismissed) {
+      if (_slideController.status == AnimationStatus.dismissed) {
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted && !_dismissed) {
+            _slideController.forward();
+            _startAutoDismiss();
+          }
+        });
+      }
+    } else if (alert == null &&
+        !widget.forceShow &&
+        _slideController.status == AnimationStatus.completed) {
+      _dismiss();
     }
   }
 
@@ -104,35 +103,80 @@ class _DisasterBannerOverlayState extends State<DisasterBannerOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final alert = _highRiskAlert;
-    if (alert == null) return widget.child;
+    return StreamBuilder<List<DisasterModel>>(
+      stream: _fs.disastersStream(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return widget.child;
+        if (snapshot.connectionState == ConnectionState.waiting)
+          return widget.child;
 
-    return Stack(
-      children: [
-        widget.child,
+        final disasters = snapshot.data ?? [];
+        DisasterModel? activeHighDisaster;
+        try {
+          activeHighDisaster = disasters.firstWhere(
+            (d) =>
+                d.status == 'active' &&
+                (d.severity == 'high' || d.severity == 'critical'),
+          );
+        } catch (_) {
+          activeHighDisaster = null;
+        }
 
-        // Banner
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: _BannerCard(
-              alert: alert,
-              onTap: () {
-                _dismiss();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => AlertDetailPage(alert: alert),
-                  ),
-                );
-              },
-              onClose: _dismiss,
+        // Trigger animation logic
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _checkAndShowBanner(activeHighDisaster);
+        });
+
+        if (activeHighDisaster == null && !widget.forceShow) {
+          return widget.child;
+        }
+
+        // Create a temporary AlertModel for the banner UI
+        final alert = AlertModel(
+          id: activeHighDisaster?.id ?? 'temp',
+          title: activeHighDisaster?.title ?? 'Emergency Alert',
+          description: activeHighDisaster?.description ?? '',
+          type: activeHighDisaster?.type ?? 'warning',
+          severity: activeHighDisaster?.severity ?? 'high',
+          shortAdvice: activeHighDisaster?.description ?? '',
+          locationName: 'Local Area',
+          distanceKm: 1.5,
+          issuedAt: activeHighDisaster?.createdAt ?? DateTime.now(),
+          lat: activeHighDisaster?.center?.latitude ?? 0,
+          lng: activeHighDisaster?.center?.longitude ?? 0,
+          recommendedActions: const [],
+          nearbyShelters: const [],
+          officialSource: 'CityGuard',
+        );
+
+        return Stack(
+          children: [
+            widget.child,
+
+            // Banner
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: _BannerCard(
+                  alert: alert,
+                  onTap: () {
+                    _dismiss();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => AlertDetailPage(alert: alert),
+                      ),
+                    );
+                  },
+                  onClose: _dismiss,
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
