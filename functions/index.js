@@ -11,7 +11,7 @@ const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 
 async function callGemini(reports) {
   const apiKey = GEMINI_API_KEY.value();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
   const reportData = reports.map(r => ({
     caseId: r.caseId,

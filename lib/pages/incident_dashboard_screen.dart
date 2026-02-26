@@ -201,7 +201,7 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
   Future<void> _reloadDisasters() async {
     setState(() => _isReloading = true);
     try {
-      await FirebaseFunctions.instanceFor(
+      final result = await FirebaseFunctions.instanceFor(
         region: 'us-central1',
       ).httpsCallable('reaggregateDisasters').call();
       if (mounted) {
@@ -692,7 +692,7 @@ class _IncidentDashboardScreenState extends State<IncidentDashboardScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

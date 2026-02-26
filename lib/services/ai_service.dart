@@ -9,8 +9,9 @@ class AiService {
   Future<Map<String, dynamic>> summarizeIncidents(
     List<Map<String, dynamic>> incidents,
   ) async {
-    if (incidents.isEmpty)
+    if (incidents.isEmpty) {
       return {"summary": "No incidents to analyze.", "groups": []};
+    }
 
     final prompt = _buildPrompt(incidents);
 
