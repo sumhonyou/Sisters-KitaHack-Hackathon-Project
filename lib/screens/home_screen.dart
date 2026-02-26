@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kitahack/services/auth_service.dart';
 import 'package:kitahack/screens/login_screen.dart';
 import 'package:kitahack/screens/safety_route_navigation_screen.dart';
@@ -40,14 +41,23 @@ class HomeScreen extends StatelessWidget {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF13C05D), // Match Figma green
+                backgroundColor: const Color(0xFF13C05D), // Figma green
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
+                padding: const EdgeInsets.all(16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                minimumSize: const Size(64, 64),
+              ),
+              child: SvgPicture.asset(
+                'assets/images/icon/navigation.svg',
+                width: 32,
+                height: 32,
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
                 ),
               ),
-              child: const Text('Test Shelter Navigation'),
             ),
           ],
         ),

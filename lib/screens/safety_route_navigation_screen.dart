@@ -138,41 +138,58 @@ class _SafetyRouteNavigationScreenState
   }
 
   Future<void> _initializeApp() async {
+    final stopwatch = Stopwatch()..start();
     try {
       debugPrint("====== INIT SAFETY ROUTE NAVIGATION ======");
       debugPrint("Google Maps Key Configured: ${_googleMapsApiKey.isNotEmpty}");
       debugPrint("Gemini Key Configured: ${_geminiApiKey.isNotEmpty}");
 
+      debugPrint(">>> Step 0: Getting user location...");
       await _getUserLocation();
       debugPrint(
-        "User Location: ${_currentPosition?.latitude}, ${_currentPosition?.longitude}",
+        ">>> Step 0 DONE (${stopwatch.elapsedMilliseconds}ms) — Location: ${_currentPosition?.latitude}, ${_currentPosition?.longitude}",
       );
 
+      debugPrint(">>> Step 1: Fetching shelters from Firestore...");
       setState(() => _loadingText = "Finding nearby shelters...");
       List<Shelter> allShelters = await _fetchSheltersFromFirestore();
+      debugPrint(
+        ">>> Step 1 DONE (${stopwatch.elapsedMilliseconds}ms) — Found ${allShelters.length} shelters",
+      );
 
       if (allShelters.isEmpty) {
         throw Exception("No shelters found in database.");
       }
 
-      // 1. Filter and get top 10 nearest by straight-line distance
+      // Filter and get top 5 nearest by straight-line distance
       _sortSheltersByDistance(allShelters);
-      List<Shelter> candidateShelters = allShelters.take(10).toList();
+      List<Shelter> candidateShelters = allShelters.take(5).toList();
+      debugPrint(
+        "Top ${candidateShelters.length} candidates selected by distance.",
+      );
 
+      debugPrint(">>> Step 2: Calculating routes for candidates...");
       setState(() => _loadingText = "Calculating fastest routes...");
-      // 2. Get ETA through Routes API for candidates
       await _calculateRoutesForCandidates(candidateShelters);
+      debugPrint(">>> Step 2 DONE (${stopwatch.elapsedMilliseconds}ms)");
 
+      debugPrint(">>> Step 3: AI ranking with Gemini...");
       setState(() => _loadingText = "AI is evaluating safety & suitability...");
-      // 3. Rank with Gemini AI
       _recommendedShelters = await _rankWithGemini(candidateShelters);
+      debugPrint(">>> Step 3 DONE (${stopwatch.elapsedMilliseconds}ms)");
 
       if (_recommendedShelters.isNotEmpty) {
         _selectedShelter = _recommendedShelters.first;
         _updateMap();
       }
+
+      debugPrint(
+        "====== INIT COMPLETE in ${stopwatch.elapsedMilliseconds}ms ======",
+      );
     } catch (e) {
-      debugPrint("Error initializing screen: $e");
+      debugPrint(
+        "!!! ERROR initializing screen (${stopwatch.elapsedMilliseconds}ms): $e",
+      );
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -186,27 +203,114 @@ class _SafetyRouteNavigationScreenState
   }
 
   Future<void> _getUserLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    debugPrint("[Location] Checking if location services are enabled...");
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    debugPrint("[Location] Service enabled: $serviceEnabled");
     if (!serviceEnabled) {
-      throw Exception('Location services are disabled.');
+      debugPrint(
+        "[Location] WARNING: Location services disabled — using default location",
+      );
+      // Use default Kuala Lumpur location instead of throwing
+      _currentPosition = null;
+      _useDefaultLocation();
+      return;
     }
 
-    permission = await Geolocator.checkPermission();
+    debugPrint("[Location] Checking permission...");
+    LocationPermission permission = await Geolocator.checkPermission();
+    debugPrint("[Location] Current permission: $permission");
     if (permission == LocationPermission.denied) {
+      debugPrint("[Location] Requesting permission...");
       permission = await Geolocator.requestPermission();
+      debugPrint("[Location] Permission after request: $permission");
       if (permission == LocationPermission.denied) {
-        throw Exception('Location permissions are denied');
+        debugPrint("[Location] Permission denied — using default location");
+        _useDefaultLocation();
+        return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      throw Exception('Location permissions are permanently denied.');
+      debugPrint(
+        "[Location] Permission permanently denied — using default location",
+      );
+      _useDefaultLocation();
+      return;
     }
 
-    _currentPosition = await Geolocator.getCurrentPosition();
+    // Try 1: Get current position with LOW accuracy (fast, uses network/WiFi — works on emulators)
+    debugPrint(
+      "[Location] Attempt 1: getCurrentPosition with LOW accuracy (5s timeout)...",
+    );
+    try {
+      _currentPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.low,
+        timeLimit: const Duration(seconds: 5),
+      );
+      debugPrint(
+        "[Location] Attempt 1 SUCCESS: ${_currentPosition!.latitude}, ${_currentPosition!.longitude}",
+      );
+      return;
+    } catch (e) {
+      debugPrint("[Location] Attempt 1 FAILED: $e");
+    }
+
+    // Try 2: Get last known position (instant, cached)
+    debugPrint("[Location] Attempt 2: getLastKnownPosition...");
+    try {
+      _currentPosition = await Geolocator.getLastKnownPosition();
+      if (_currentPosition != null) {
+        debugPrint(
+          "[Location] Attempt 2 SUCCESS: ${_currentPosition!.latitude}, ${_currentPosition!.longitude}",
+        );
+        return;
+      }
+      debugPrint("[Location] Attempt 2 returned null (no cached location)");
+    } catch (e) {
+      debugPrint("[Location] Attempt 2 FAILED: $e");
+    }
+
+    // Try 3: Final attempt with medium accuracy and longer timeout
+    debugPrint(
+      "[Location] Attempt 3: getCurrentPosition with MEDIUM accuracy (8s timeout)...",
+    );
+    try {
+      _currentPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 8),
+      );
+      debugPrint(
+        "[Location] Attempt 3 SUCCESS: ${_currentPosition!.latitude}, ${_currentPosition!.longitude}",
+      );
+      return;
+    } catch (e) {
+      debugPrint("[Location] Attempt 3 FAILED: $e");
+    }
+
+    // All attempts failed — use default location so the app doesn't hang
+    debugPrint(
+      "[Location] ALL ATTEMPTS FAILED — falling back to default location",
+    );
+    _useDefaultLocation();
+  }
+
+  /// Fallback default location (Kuala Lumpur city center) when GPS is unavailable
+  void _useDefaultLocation() {
+    debugPrint(
+      "[Location] Using default location: Kuala Lumpur (3.1390, 101.6869)",
+    );
+    _currentPosition = Position(
+      latitude: 3.1390,
+      longitude: 101.6869,
+      timestamp: DateTime.now(),
+      accuracy: 0,
+      altitude: 0,
+      heading: 0,
+      speed: 0,
+      speedAccuracy: 0,
+      altitudeAccuracy: 0,
+      headingAccuracy: 0,
+    );
   }
 
   Future<List<Shelter>> _fetchSheltersFromFirestore() async {
@@ -248,25 +352,27 @@ class _SafetyRouteNavigationScreenState
       };
 
       try {
-        final response = await http.post(
-          Uri.parse(
-            'https://routes.googleapis.com/directions/v2:computeRoutes',
-          ),
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Key': _googleMapsApiKey,
-            'X-Goog-FieldMask':
-                'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
-          },
-          body: jsonEncode({
-            "origin": origin,
-            "destination": destination,
-            "travelMode": _travelMode,
-            "routingPreference": _travelMode == 'DRIVE'
-                ? "TRAFFIC_AWARE"
-                : "ROUTING_PREFERENCE_UNSPECIFIED",
-          }),
-        );
+        final response = await http
+            .post(
+              Uri.parse(
+                'https://routes.googleapis.com/directions/v2:computeRoutes',
+              ),
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': _googleMapsApiKey,
+                'X-Goog-FieldMask':
+                    'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
+              },
+              body: jsonEncode({
+                "origin": origin,
+                "destination": destination,
+                "travelMode": _travelMode,
+                "routingPreference": _travelMode == 'DRIVE'
+                    ? "TRAFFIC_AWARE"
+                    : "ROUTING_PREFERENCE_UNSPECIFIED",
+              }),
+            )
+            .timeout(const Duration(seconds: 5));
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
@@ -298,8 +404,9 @@ class _SafetyRouteNavigationScreenState
   }
 
   Future<List<Shelter>> _rankWithGemini(List<Shelter> candidates) async {
+    // Use gemini-2.0-flash (fast, non-thinking model) instead of gemini-2.5-flash (thinking model, very slow)
     final model = GenerativeModel(
-      model: 'models/gemini-2.5-flash',
+      model: 'gemini-2.5-flash',
       apiKey: _geminiApiKey,
       systemInstruction: Content.system(
         "You are an AI assistant helping a disaster management app rank safe shelters. Output strictly in JSON array format: [{\"id\": \"SH-001\", \"reason\": \"Short reason here\"}]",
@@ -323,50 +430,119 @@ class _SafetyRouteNavigationScreenState
 
     final prompt =
         """
-    Evaluate and rank the top 3 best shelters for a user currently in a disaster zone.
-    Priority weights:
-    1. Status MUST be 'open'. Avoid 'full' or 'closed' unless absolutely no choice.
-    2. Capacity Remaining (capacityTotal - capacityCurrent) should be higher.
-    3. ETA should be as low as possible.
-    4. Tags like 'Medical', 'Food' provide extra value.
+    You are an emergency response AI evaluating safe shelters. Rank the top 3 best shelters from the candidates provided.
+    
+    CRITICAL RULES (Failure to follow these will endanger lives):
+    1. The shelter you rank as #1 MUST be 'open' and MUST have available capacity (capacityTotal - capacityCurrent > 0). NEVER rank a 'full' shelter as #1 if there is an open shelter with capacity available.
+    2. If a shelter is 'full' (or capacity remaining is 0), you may still include it, but YOU MUST rank it 2nd or 3rd.
+    3. For any 'full' shelter you include, its reason MUST explicitly mention: "Although it is overall good for the situation, the capacity is full so it is a secondary choice."
+    4. Among open shelters, prefer higher remaining capacity and lower ETA.
     
     Here are the candidates:
     ${jsonEncode(candidateInfo)}
     
-    Return the top 3 recommended shelter IDs along with a concise 1-sentence reason for choosing it.
-    Strictly output JSON.
+    Respond STRICTLY with a JSON array:
+    [
+      {"id": "...", "reason": "..."},
+      {"id": "...", "reason": "..."},
+      {"id": "...", "reason": "..."}
+    ]
     """;
 
     try {
-      debugPrint("Calling Gemini API for ranking...");
-      final response = await model.generateContent([Content.text(prompt)]);
-      debugPrint("Gemini API Response: ${response.text}");
+      debugPrint(
+        "[Gemini] Calling Gemini API (gemini-2.0-flash) for ranking...",
+      );
+      debugPrint(
+        "[Gemini] Sending ${candidates.length} candidates for evaluation",
+      );
+      final response = await model
+          .generateContent([Content.text(prompt)])
+          .timeout(const Duration(seconds: 45));
+      debugPrint("[Gemini] Raw response: ${response.text}");
       String reply = response.text ?? "[]";
       // Clean up markdown formatting if any
       reply = reply.replaceAll('```json', '').replaceAll('```', '').trim();
+      debugPrint("[Gemini] Cleaned response: $reply");
       List<dynamic> rankedJson = jsonDecode(reply);
+      debugPrint(
+        "[Gemini] Parsed ${rankedJson.length} ranked shelters from response",
+      );
 
       List<Shelter> rankedShelters = [];
       for (var r in rankedJson) {
         final id = r['id'];
         final reason = r['reason'];
+        debugPrint("[Gemini] Ranked shelter id=$id, reason=$reason");
         try {
           final shelter = candidates.firstWhere((s) => s.id == id);
           shelter.recommendationReason = reason;
           rankedShelters.add(shelter);
         } catch (e) {
-          // shelter not found in original candidates, ignore
+          debugPrint(
+            "[Gemini] WARNING: Shelter with id=$id not found in candidates, skipping",
+          );
         }
       }
-      return rankedShelters.isEmpty
-          ? candidates.take(3).toList()
-          : rankedShelters;
+
+      if (rankedShelters.isEmpty) {
+        debugPrint(
+          "[Gemini] WARNING: No shelters matched from Gemini response, using fallback",
+        );
+        return _fallbackRanking(candidates);
+      }
+
+      debugPrint(
+        "[Gemini] SUCCESS: Returning ${rankedShelters.length} AI-ranked shelters",
+      );
+      return rankedShelters;
     } catch (e) {
-      debugPrint("Gemini evaluation error: $e");
-      // Fallback: simply sort by ETA
-      candidates.sort((a, b) => a.etaSeconds.compareTo(b.etaSeconds));
-      return candidates.take(3).toList();
+      debugPrint("[Gemini] ERROR: $e");
+      debugPrint("[Gemini] Using fallback ranking with auto-generated reasons");
+      return _fallbackRanking(candidates);
     }
+  }
+
+  /// Fallback ranking when Gemini fails — prioritizes open shelters with capacity,
+  /// penalizes full/closed shelters, and generates recommendation reasons
+  List<Shelter> _fallbackRanking(List<Shelter> candidates) {
+    // Sort: open shelters with capacity first, then by ETA
+    candidates.sort((a, b) {
+      final aRemaining = a.capacityTotal - a.capacityCurrent;
+      final bRemaining = b.capacityTotal - b.capacityCurrent;
+      final aIsFull = a.status == 'full' || aRemaining <= 0;
+      final bIsFull = b.status == 'full' || bRemaining <= 0;
+      final aIsClosed = a.status == 'closed';
+      final bIsClosed = b.status == 'closed';
+
+      // Open with capacity > Full > Closed
+      if (!aIsFull && !aIsClosed && (bIsFull || bIsClosed)) return -1;
+      if ((aIsFull || aIsClosed) && !bIsFull && !bIsClosed) return 1;
+      if (aIsFull && bIsClosed) return -1;
+      if (aIsClosed && bIsFull) return 1;
+
+      // Among same status group: sort by ETA
+      return a.etaSeconds.compareTo(b.etaSeconds);
+    });
+
+    List<Shelter> top3 = candidates.take(3).toList();
+    for (int i = 0; i < top3.length; i++) {
+      final s = top3[i];
+      final remaining = s.capacityTotal - s.capacityCurrent;
+      final isFull = s.status == 'full' || remaining <= 0;
+
+      if (isFull) {
+        s.recommendationReason =
+            "FULL — not accepting new evacuees. ${s.tags.isNotEmpty ? s.tags.first : 'General'} services available when capacity opens.";
+      } else if (i == 0) {
+        s.recommendationReason =
+            "Best option: open with $remaining spots and ${_formatEta(s.etaSeconds)} travel time. ${s.tags.take(2).join(', ')} services offered.";
+      } else {
+        s.recommendationReason =
+            "Open shelter with $remaining spots available, ${_formatEta(s.etaSeconds)} ETA. ${s.tags.take(2).join(', ')} services offered.";
+      }
+    }
+    return top3;
   }
 
   List<LatLng> _decodePolyline(String encoded) {
