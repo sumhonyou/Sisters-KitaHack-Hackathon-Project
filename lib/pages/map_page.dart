@@ -26,6 +26,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   bool _isHeatmap = true;
   GoogleMapController? _mapController;
   ReportedCase? _selectedCase;
+  CameraPosition? _lastCameraPosition;
 
   static const LatLng _klCenter = LatLng(3.1390, 101.6869);
 
@@ -184,11 +185,11 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: GoogleMap(
-              initialCameraPosition: const CameraPosition(
-                target: _klCenter,
-                zoom: 11.5,
-              ),
+              initialCameraPosition:
+                  _lastCameraPosition ??
+                  const CameraPosition(target: _klCenter, zoom: 11.5),
               onMapCreated: (c) => _mapController = c,
+              onCameraMove: (pos) => _lastCameraPosition = pos,
               markers: _buildMarkers(cases),
               circles: _buildCircles(cases),
               gestureRecognizers: {
@@ -234,10 +235,34 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
       byCases.putIfAbsent(c.areaId, () => []).add(c);
     }
 
-    // Areas that have at least 1 case OR all areas
-    final displayAreas =
-        areas.isEmpty ? <AreaModel>[] : List<AreaModel>.from(areas)
-          ..sort((a, b) => a.name.compareTo(b.name));
+    final List<AreaModel> displayAreas = List<AreaModel>.from(areas);
+    final Set<String> areaIdSet = areas.map((a) => a.areaId).toSet();
+
+    // Check if there are any cases with areaId that is NOT in the areas list
+    final List<ReportedCase> orphanedCases = [];
+    byCases.forEach((areaId, casesInArea) {
+      if (!areaIdSet.contains(areaId)) {
+        orphanedCases.addAll(casesInArea);
+      }
+    });
+
+    if (orphanedCases.isNotEmpty) {
+      // Add a "General" area for these orphaned cases
+      const generalId = 'general_unresolved';
+      displayAreas.add(
+        AreaModel(
+          id: generalId,
+          areaId: generalId,
+          name: 'OTHER LOCATIONS',
+          centerLat: 3.1390,
+          centerLng: 101.6869,
+          radiusKm: 0,
+        ),
+      );
+      byCases[generalId] = orphanedCases;
+    }
+
+    displayAreas.sort((a, b) => a.name.compareTo(b.name));
 
     return CustomScrollView(
       slivers: [

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:kitahack/screens/report_form_screen.dart';
+import 'package:kitahack/pages/report_from_screen.dart';
 
 class ReportCategoryScreen extends StatelessWidget {
   const ReportCategoryScreen({super.key});

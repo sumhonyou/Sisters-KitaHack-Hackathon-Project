@@ -47,10 +47,11 @@ class AuthService {
       // 2. Determine nearest area or create new one if location is provided
       String homeAreaId = '';
       if (latitude != null && longitude != null) {
-        homeAreaId = await _firestoreService.getOrCreateAreaId(
+        final areaRes = await _firestoreService.getOrCreateAreaId(
           latitude,
           longitude,
         );
+        homeAreaId = areaRes.$1;
       }
 
       // 3. Add user details to Firestore

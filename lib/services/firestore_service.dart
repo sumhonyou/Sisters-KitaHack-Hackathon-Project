@@ -30,7 +30,7 @@ class FirestoreService {
 
   Stream<List<AreaModel>> areasStream() {
     return _db
-        .collection('areas')
+        .collection('Areas')
         .snapshots()
         .map((snap) => snap.docs.map(AreaModel.fromFirestore).toList());
   }
@@ -56,7 +56,7 @@ class FirestoreService {
     double lng, {
     bool insideRadius = false,
   }) async {
-    final areas = await _db.collection('areas').get();
+    final areas = await _db.collection('Areas').get();
     if (areas.docs.isEmpty) return null;
 
     String? nearestId;
@@ -77,12 +77,18 @@ class FirestoreService {
     return nearestId;
   }
 
-  /// Get area ID if user is within 5km of an existing center,
-  /// otherwise create a new area and return its ID.
-  Future<String> getOrCreateAreaId(double lat, double lng) async {
+  /// Get area (ID, Name) if user is within 5km of an existing center,
+  /// otherwise create a new area and return its (ID, Name).
+  Future<(String, String)> getOrCreateAreaId(double lat, double lng) async {
     // 1. Check for existing area within 5km
-    final nearestAreaId = await getNearestAreaId(lat, lng, insideRadius: true);
-    if (nearestAreaId != null) return nearestAreaId;
+    final areas = await _db.collection('Areas').get();
+    for (var doc in areas.docs) {
+      final area = AreaModel.fromFirestore(doc);
+      final dist = _calculateDistance(lat, lng, area.centerLat, area.centerLng);
+      if (dist <= 5.0) {
+        return (area.areaId, area.name);
+      }
+    }
 
     // 2. Determine a friendly name using Reverse Geocoding
     String newAreaName =
@@ -110,7 +116,7 @@ class FirestoreService {
     }
 
     // 3. Create new area
-    final docRef = _db.collection('areas').doc();
+    final docRef = _db.collection('Areas').doc();
     final newAreaId = docRef.id;
 
     final newArea = AreaModel(
@@ -123,7 +129,7 @@ class FirestoreService {
     );
 
     await docRef.set(newArea.toMap());
-    return newAreaId;
+    return (newAreaId, newAreaName);
   }
 
   double _calculateDistance(

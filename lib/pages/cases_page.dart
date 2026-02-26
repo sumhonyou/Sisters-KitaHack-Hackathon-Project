@@ -16,6 +16,7 @@ class _CasesPageState extends State<CasesPage> {
   bool _isSummarizing = false;
   List<Map<String, dynamic>> _lastAnalyzedIncidents = [];
   final Map<String, String> _areaNames = {};
+  bool _areasLoaded = false;
 
   // Filter states
   String _selectedSeverity = 'All';
@@ -31,13 +32,28 @@ class _CasesPageState extends State<CasesPage> {
   }
 
   Future<void> _loadAreaNames() async {
-    final snapshot = await FirebaseFirestore.instance.collection('Areas').get();
-    for (var doc in snapshot.docs) {
-      final name = doc.data()['name'] as String?;
-      if (name != null) {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('Areas')
+          .get();
+      final Map<String, String> loadedNames = {};
+      for (var doc in snapshot.docs) {
+        final name = doc.data()['name'] as String?;
+        if (name != null) {
+          loadedNames[doc.id] = name;
+        }
+      }
+      if (mounted) {
         setState(() {
-          _areaNames[doc.id] = name;
+          _areaNames.clear();
+          _areaNames.addAll(loadedNames);
+          _areasLoaded = true;
         });
+      }
+    } catch (e) {
+      debugPrint("Error loading area names: $e");
+      if (mounted) {
+        setState(() => _areasLoaded = true);
       }
     }
   }
@@ -256,7 +272,8 @@ class _CasesPageState extends State<CasesPage> {
                   );
 
                   // Trigger automatic AI analysis if not already doing it
-                  if (!_isSummarizing &&
+                  if (_areasLoaded &&
+                      !_isSummarizing &&
                       (_aiInsightData == null ||
                           allDocs.length != _lastAnalyzedIncidents.length)) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {

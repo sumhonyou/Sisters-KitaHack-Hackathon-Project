@@ -4,6 +4,7 @@ import '../models/disaster_model.dart';
 import '../models/shelter_model.dart';
 import '../services/firestore_service.dart';
 import 'profile_page.dart';
+import 'report_category_screen.dart';
 
 class HomePage extends StatefulWidget {
   final VoidCallback? onNavigateToMap;
@@ -1366,7 +1367,11 @@ class _HomePageState extends State<HomePage> {
                 icon: Icons.edit_document,
                 label: 'Report',
                 color: const Color(0xFF1A56DB),
-                onTap: () => _showReportSnack(context),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ReportCategoryScreen(),
+                  ),
+                ),
               ),
               _categoryButton(
                 icon: Icons.near_me,
@@ -1478,17 +1483,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showReportSnack(BuildContext ctx) {
-    ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(
-        content: const Text('📋 Incident reporting coming soon'),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 2),
       ),
     );
   }
