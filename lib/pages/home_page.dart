@@ -7,6 +7,7 @@ import 'profile_page.dart';
 import 'report_category_screen.dart';
 import 'sos_screen.dart';
 import 'safety_route_navigation.dart';
+import '../services/notification_service.dart';
 
 class HomePage extends StatefulWidget {
   final VoidCallback? onNavigateToMap;
@@ -16,7 +17,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final PageController _pageCtrl = PageController(
     viewportFraction: 0.88,
     initialPage: 0,
@@ -97,12 +98,49 @@ class _HomePageState extends State<HomePage> {
     },
   ];
 
+  // ── Notification Logic ───────────────────────────────────────────────────
+  final NotificationService _notificationService = NotificationService();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initNotifications();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      _triggerSystemNotifications();
+    }
+  }
+
+  Future<void> _initNotifications() async {
+    await _notificationService.init();
+    _triggerSystemNotifications();
+  }
+
+  void _triggerSystemNotifications() {
+    for (int i = 0; i < _notifications.length; i++) {
+      final n = _notifications[i];
+      if (n['read'] == false) {
+        _notificationService.showNotification(
+          id: i,
+          title: n['title'],
+          body: n['body'],
+        );
+      }
+    }
+  }
+
   // ── Colors ──────────────────────────────────────────────────────────────────
   static const _blue = Color(0xFF1A56DB);
   static const _bgGray = Color(0xFFF9FAFB);
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageCtrl.dispose();
     super.dispose();
   }
@@ -360,7 +398,7 @@ class _HomePageState extends State<HomePage> {
 
   // ── Notifications Panel ───────────────────────────────────────────────────
   void _showNotificationsPanel() {
-    // Mark all as read when panel is opened
+    _triggerSystemNotifications();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -408,6 +446,7 @@ class _HomePageState extends State<HomePage> {
                               n['read'] = true;
                             }
                           });
+                          _notificationService.cancelAll();
                           setInner(() {});
                         },
                         child: const Text(
@@ -435,7 +474,10 @@ class _HomePageState extends State<HomePage> {
                       final isRead = n['read'] as bool;
                       return InkWell(
                         onTap: () {
-                          setState(() => _notifications[i]['read'] = true);
+                          setState(() {
+                            _notifications[i]['read'] = true;
+                            _notificationService.cancelNotification(i);
+                          });
                           setInner(() {});
                         },
                         child: Container(

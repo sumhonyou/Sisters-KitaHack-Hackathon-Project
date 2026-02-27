@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 class AiService {
   final String _apiKey = "AIzaSyDr5pYhrIyk77ofyJ7gSC88zGtiP8zS7Qg";
   final String _endpoint =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent";
 
   Future<Map<String, dynamic>> summarizeIncidents(
     List<Map<String, dynamic>> incidents,
