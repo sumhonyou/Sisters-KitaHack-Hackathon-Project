@@ -30,7 +30,7 @@ class FirestoreService {
 
   Stream<List<AreaModel>> areasStream() {
     return _db
-        .collection('Areas')
+        .collection('areas')
         .snapshots()
         .map((snap) => snap.docs.map(AreaModel.fromFirestore).toList());
   }
@@ -56,7 +56,7 @@ class FirestoreService {
     double lng, {
     bool insideRadius = false,
   }) async {
-    final areas = await _db.collection('Areas').get();
+    final areas = await _db.collection('areas').get();
     if (areas.docs.isEmpty) return null;
 
     String? nearestId;
@@ -81,7 +81,7 @@ class FirestoreService {
   /// otherwise create a new area and return its (ID, Name).
   Future<(String, String)> getOrCreateAreaId(double lat, double lng) async {
     // 1. Check for existing area within 5km
-    final areas = await _db.collection('Areas').get();
+    final areas = await _db.collection('areas').get();
     for (var doc in areas.docs) {
       final area = AreaModel.fromFirestore(doc);
       final dist = _calculateDistance(lat, lng, area.centerLat, area.centerLng);
@@ -116,7 +116,7 @@ class FirestoreService {
     }
 
     // 3. Create new area
-    final docRef = _db.collection('Areas').doc();
+    final docRef = _db.collection('areas').doc();
     final newAreaId = docRef.id;
 
     final newArea = AreaModel(

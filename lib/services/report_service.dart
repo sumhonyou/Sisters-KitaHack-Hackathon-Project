@@ -18,7 +18,6 @@ class ReportService {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.deniedForever) return null;
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -28,6 +27,12 @@ class ReportService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Get Area Name for coordinates
+  Future<String> getAreaName(double lat, double lng) async {
+    final res = await _firestoreService.getOrCreateAreaId(lat, lng);
+    return res.$2;
   }
 
   // _resolveArea removed in favor of _firestoreService.getOrCreateAreaId

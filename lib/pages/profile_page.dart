@@ -104,7 +104,7 @@ class _ProfilePageState extends State<ProfilePage> {
       return;
     }
     try {
-      final areaDoc = await _db.collection('Areas').doc(areaId).get();
+      final areaDoc = await _db.collection('areas').doc(areaId).get();
       if (areaDoc.exists) {
         setState(() => _areaName = areaDoc.data()?['name'] ?? 'Unknown Area');
       } else {

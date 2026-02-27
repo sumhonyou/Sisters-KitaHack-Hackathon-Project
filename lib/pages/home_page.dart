@@ -5,6 +5,8 @@ import '../models/shelter_model.dart';
 import '../services/firestore_service.dart';
 import 'profile_page.dart';
 import 'report_category_screen.dart';
+import 'sos_screen.dart';
+import 'safety_route_navigation.dart';
 
 class HomePage extends StatefulWidget {
   final VoidCallback? onNavigateToMap;
@@ -211,165 +213,6 @@ class _HomePageState extends State<HomePage> {
   Future<void> _callNumber(String number) async {
     final uri = Uri(scheme: 'tel', path: number);
     if (await canLaunchUrl(uri)) await launchUrl(uri);
-  }
-
-  void _showShelterSheet(BuildContext ctx, List<ShelterModel> shelters) {
-    showModalBottomSheet(
-      context: ctx,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.9,
-        minChildSize: 0.4,
-        builder: (_, sc) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Icon(Icons.house, color: Color(0xFF1A56DB)),
-                    SizedBox(width: 8),
-                    Text(
-                      'Nearby Shelters',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: shelters.isEmpty
-                    ? const Center(child: Text('No shelters found'))
-                    : ListView.separated(
-                        controller: sc,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: shelters.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
-                        itemBuilder: (_, i) => _shelterCard(shelters[i]),
-                      ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _shelterCard(ShelterModel s) {
-    final isFull = s.isFull;
-    final fillPct = s.occupancyRate;
-    Color statusColor = isFull
-        ? const Color(0xFFEF4444)
-        : s.status == 'open'
-        ? const Color(0xFF22C55E)
-        : const Color(0xFF6B7280);
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  s.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  isFull ? 'Full' : s.status.toUpperCase(),
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: fillPct,
-              minHeight: 6,
-              backgroundColor: const Color(0xFFE5E7EB),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isFull ? const Color(0xFFEF4444) : const Color(0xFF1A56DB),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Text(
-                '${s.capacityCurrent}/${s.capacityTotal} people',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => _callNumber(s.contactPhone),
-                child: Row(
-                  children: [
-                    const Icon(Icons.phone, size: 12, color: Color(0xFF1A56DB)),
-                    const SizedBox(width: 4),
-                    Text(
-                      s.contactPhone,
-                      style: const TextStyle(
-                        color: Color(0xFF1A56DB),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
@@ -1357,11 +1200,10 @@ class _HomePageState extends State<HomePage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _categoryButton(
-                icon: Icons.sos,
-                label: 'SOS',
-                color: const Color(0xFFEF4444),
-                onTap: () => _showSOSDialog(context),
+              _LongPressSosButton(
+                onTrigger: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const SosScreen())),
               ),
               _categoryButton(
                 icon: Icons.edit_document,
@@ -1377,7 +1219,11 @@ class _HomePageState extends State<HomePage> {
                 icon: Icons.near_me,
                 label: 'Shelter',
                 color: const Color(0xFF16A34A),
-                onTap: () => _showShelterSheet(context, shelters),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SafetyRouteNavigationScreen(),
+                  ),
+                ),
               ),
               _categoryButton(
                 icon: Icons.map,
@@ -1425,61 +1271,6 @@ class _HomePageState extends State<HomePage> {
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: Color(0xFF374151),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSOSDialog(BuildContext ctx) {
-    showDialog(
-      context: ctx,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.sos, color: Color(0xFFEF4444), size: 28),
-            SizedBox(width: 8),
-            Text(
-              'Send SOS Alert',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: const Text(
-          'This will immediately notify emergency services and your emergency contacts. Only use in a real emergency.',
-          style: TextStyle(height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('🆘 SOS Alert Sent! Help is on the way.'),
-                  backgroundColor: const Color(0xFFEF4444),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  duration: const Duration(seconds: 3),
-                ),
-              );
-            },
-            child: const Text(
-              'Send SOS',
-              style: TextStyle(color: Colors.white),
             ),
           ),
         ],
@@ -1780,5 +1571,176 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+}
+
+class _LongPressSosButton extends StatefulWidget {
+  final VoidCallback onTrigger;
+
+  const _LongPressSosButton({required this.onTrigger});
+
+  @override
+  State<_LongPressSosButton> createState() => _LongPressSosButtonState();
+}
+
+class _LongPressSosButtonState extends State<_LongPressSosButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  bool _isHolding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _onHoldComplete();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onHoldComplete() {
+    if (_isHolding) {
+      widget.onTrigger();
+      _cancelHold();
+    }
+  }
+
+  void _startHold() {
+    setState(() => _isHolding = true);
+    _controller.forward(from: 0);
+  }
+
+  void _cancelHold() {
+    if (_isHolding) {
+      setState(() => _isHolding = false);
+      _controller.stop();
+      _controller.value = 0;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFFEF4444);
+
+    return GestureDetector(
+      onTapDown: (_) => _startHold(),
+      onTapUp: (_) => _cancelHold(),
+      onTapCancel: () => _cancelHold(),
+      child: Column(
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              // Border Slide Progress
+              if (_isHolding)
+                SizedBox(
+                  width: 76,
+                  height: 76,
+                  child: AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, child) {
+                      return CustomPaint(
+                        painter: _BorderProgressPainter(
+                          progress: _controller.value,
+                          color: color,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              // Button
+              AnimatedScale(
+                scale: _isHolding ? 1.05 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'SOS',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'SOS',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF374151),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BorderProgressPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _BorderProgressPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final backgroundPaint = Paint()
+      ..color = color.withValues(alpha: 0.1)
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke;
+
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(6, 6, size.width - 12, size.height - 12),
+      const Radius.circular(21), // Slightly larger radius for the outer border
+    );
+
+    canvas.drawRRect(rect, backgroundPaint);
+
+    final path = Path()..addRRect(rect);
+    final metrics = path.computeMetrics().first;
+    final extractPath = metrics.extractPath(0, metrics.length * progress);
+
+    canvas.drawPath(extractPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(_BorderProgressPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }

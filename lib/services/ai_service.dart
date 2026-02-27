@@ -68,28 +68,31 @@ class AiService {
     return """
 You are a disaster management analyst. Analyze the following recent incidents.
 Group related incidents that are reported from the same areas into "disasters".
-Use the human-readable Area names provided in the incident details for your summary and titles.
+
+CRITICAL INSTRUCTION:
+1. Always use the human-readable "Area:" name provided in the incident details (e.g. "Taman Setiawangsa, Kuala Lumpur") for your "summary", "title", and "description". 
+2. NEVER use the technical Area ID (the alphanumeric string in parentheses) in any user-facing text.
 
 Return strictly a JSON object with the following structure:
 {
-  "summary": "A high-level overview of all incidents combined",
+  "summary": "A high-level overview of all incidents, using human-readable names.",
   "groups": [
     {
       "disasterId": "unique_string_id",
       "Type": "Category of disaster (e.g. Flood, Fire, Storm)",
       "severity": "Severity level (e.g. Critical, High, Medium, Low)",
-      "title": "A short descriptive title for the disaster",
-      "description": "A summary of the situation",
+      "title": "A short descriptive title, e.g. 'Flash Flood in Taman Setiawangsa'",
+      "description": "A summary of the situation using area names instead of IDs.",
       "affectedAreaIds": ["list", "of", "areaIds"],
       "Status": "Active",
       "updatedAt": "Current ISO timestamp",
       "incidentCount": 5,
       "totalAffected": 20,
-      "analysis": "A detailed analysis of what's happening",
+      "analysis": "A detailed analysis involving the area names.",
       "similarCasesTracked": "Explanation of how these cases are similar"
     }
   ],
-  "disasterTrends": "Analysis of trends across all areas"
+  "disasterTrends": "Analysis of trends across all areas using their names"
 }
 
 Incidents:

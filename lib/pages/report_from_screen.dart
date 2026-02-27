@@ -32,6 +32,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   String? _checkIn; // null = not yet picked
   int? _severity; // null = not yet chosen
   Position? _position;
+  String? _areaName;
   bool _loadingLocation = true;
   final List<File> _mediaFiles = [];
   bool _submitting = false;
@@ -60,9 +61,14 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
 
   Future<void> _fetchLocation() async {
     final pos = await _service.getCurrentLocation();
+    String? areaName;
+    if (pos != null) {
+      areaName = await _service.getAreaName(pos.latitude, pos.longitude);
+    }
     if (mounted) {
       setState(() {
         _position = pos;
+        _areaName = areaName;
         _loadingLocation = false;
       });
     }
@@ -396,8 +402,9 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                                 ),
                               ),
                               Text(
-                                'Lat: ${_position!.latitude.toStringAsFixed(4)}'
-                                '  •  Lng: ${_position!.longitude.toStringAsFixed(4)}',
+                                _areaName ??
+                                    'Lat: ${_position!.latitude.toStringAsFixed(4)}'
+                                        '  •  Lng: ${_position!.longitude.toStringAsFixed(4)}',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: Colors.grey.shade600,

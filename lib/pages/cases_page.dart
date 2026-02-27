@@ -18,6 +18,10 @@ class _CasesPageState extends State<CasesPage> {
   final Map<String, String> _areaNames = {};
   bool _areasLoaded = false;
 
+  // Toggle states
+  bool _showAllDisasters = false;
+  bool _showAllIncidents = false;
+
   // Filter states
   String _selectedSeverity = 'All';
   String _selectedType = 'All';
@@ -34,7 +38,7 @@ class _CasesPageState extends State<CasesPage> {
   Future<void> _loadAreaNames() async {
     try {
       final snapshot = await FirebaseFirestore.instance
-          .collection('Areas')
+          .collection('areas')
           .get();
       final Map<String, String> loadedNames = {};
       for (var doc in snapshot.docs) {
@@ -107,6 +111,20 @@ class _CasesPageState extends State<CasesPage> {
     setState(() => _isSummarizing = true);
 
     try {
+      // Ensure all areaNames are loaded for the current incidents
+      bool needsRecheck = false;
+      for (var inc in incidents) {
+        final aid = inc['areaId'] as String?;
+        if (aid != null && aid.isNotEmpty && !_areaNames.containsKey(aid)) {
+          needsRecheck = true;
+          break;
+        }
+      }
+
+      if (needsRecheck) {
+        await _loadAreaNames();
+      }
+
       final insightData = await _aiService.summarizeIncidents(
         incidents,
         _areaNames,
@@ -313,8 +331,28 @@ class _CasesPageState extends State<CasesPage> {
 
                       if (filteredDocs.isEmpty)
                         _buildEmptyState()
-                      else
-                        ...filteredDocs.map((doc) => _buildIncidentCard(doc)),
+                      else ...[
+                        ...filteredDocs
+                            .take(_showAllIncidents ? filteredDocs.length : 2)
+                            .map((doc) => _buildIncidentCard(doc)),
+                        if (filteredDocs.length > 2)
+                          Center(
+                            child: TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _showAllIncidents = !_showAllIncidents;
+                                });
+                              },
+                              child: Text(
+                                _showAllIncidents ? 'Show less' : 'Show all',
+                                style: const TextStyle(
+                                  color: Color(0xFF1A56DB),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
 
                       const SizedBox(height: 20),
                     ],
@@ -398,7 +436,26 @@ class _CasesPageState extends State<CasesPage> {
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 10),
-          ...groups.map((g) => _buildDisasterGroupCard(g)),
+          ...groups
+              .take(_showAllDisasters ? groups.length : 2)
+              .map((g) => _buildDisasterGroupCard(g as Map<String, dynamic>)),
+          if (groups.length > 2)
+            Center(
+              child: TextButton(
+                onPressed: () {
+                  setState(() {
+                    _showAllDisasters = !_showAllDisasters;
+                  });
+                },
+                child: Text(
+                  _showAllDisasters ? 'Show less' : 'Show all',
+                  style: const TextStyle(
+                    color: Color(0xFF1A56DB),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
         ],
       ],
     );
