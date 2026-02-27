@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AiService {
-  final String _apiKey = "AIzaSyDr5pYhrIyk77ofyJ7gSC88zGtiP8zS7Qg";
+  final String _apiKey = "AIzaSyCzgPsCxHJJI4lK86cZIKVzDOKPavBaIdI";
   final String _endpoint =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
   Future<Map<String, dynamic>> summarizeIncidents(
     List<Map<String, dynamic>> incidents,
@@ -70,25 +70,27 @@ You are a disaster management analyst. Analyze the following recent incidents.
 Group related incidents that are reported from the same areas into "disasters".
 
 CRITICAL INSTRUCTION:
-1. Always use the human-readable "Area:" name provided in the incident details (e.g. "Taman Setiawangsa, Kuala Lumpur") for your "summary", "title", and "description". 
-2. NEVER use the technical Area ID (the alphanumeric string in parentheses) in any user-facing text.
+1. Always use the human-readable "Area:" name provided in the incident details for your "summary", "title", and "description". 
+2. NEVER use the technical Area ID in any user-facing text.
+3. Keep the "summary" to exactly ONE concise sentence.
+4. Keep the "analysis" for each group to exactly ONE short, informative sentence.
 
 Return strictly a JSON object with the following structure:
 {
-  "summary": "A high-level overview of all incidents, using human-readable names.",
+  "summary": "A high-level one-sentence overview of all incidents.",
   "groups": [
     {
       "disasterId": "unique_string_id",
-      "Type": "Category of disaster (e.g. Flood, Fire, Storm)",
-      "severity": "Severity level (e.g. Critical, High, Medium, Low)",
-      "title": "A short descriptive title, e.g. 'Flash Flood in Taman Setiawangsa'",
-      "description": "A summary of the situation using area names instead of IDs.",
+      "Type": "Category of disaster",
+      "severity": "Severity level",
+      "title": "A short descriptive title",
+      "description": "A very brief summary of the situation.",
       "affectedAreaIds": ["list", "of", "areaIds"],
       "Status": "Active",
       "updatedAt": "Current ISO timestamp",
       "incidentCount": 5,
       "totalAffected": 20,
-      "analysis": "A detailed analysis involving the area names.",
+      "analysis": "A single short sentence analyzing the group.",
       "similarCasesTracked": "Explanation of how these cases are similar"
     }
   ],

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:kitahack/services/ai_service.dart';
 import 'package:intl/intl.dart';
 
 class CasesPage extends StatefulWidget {
@@ -11,15 +10,7 @@ class CasesPage extends StatefulWidget {
 }
 
 class _CasesPageState extends State<CasesPage> {
-  final AiService _aiService = AiService();
-  Map<String, dynamic>? _aiInsightData;
-  bool _isSummarizing = false;
-  List<Map<String, dynamic>> _lastAnalyzedIncidents = [];
-  final Map<String, String> _areaNames = {};
-  bool _areasLoaded = false;
-
   // Toggle states
-  bool _showAllDisasters = false;
   bool _showAllIncidents = false;
 
   // Filter states
@@ -32,121 +23,6 @@ class _CasesPageState extends State<CasesPage> {
   @override
   void initState() {
     super.initState();
-    _loadAreaNames();
-  }
-
-  Future<void> _loadAreaNames() async {
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('areas')
-          .get();
-      final Map<String, String> loadedNames = {};
-      for (var doc in snapshot.docs) {
-        final name = doc.data()['name'] as String?;
-        if (name != null) {
-          loadedNames[doc.id] = name;
-        }
-      }
-      if (mounted) {
-        setState(() {
-          _areaNames.clear();
-          _areaNames.addAll(loadedNames);
-          _areasLoaded = true;
-        });
-      }
-    } catch (e) {
-      debugPrint("Error loading area names: $e");
-      if (mounted) {
-        setState(() => _areasLoaded = true);
-      }
-    }
-  }
-
-  String _getAreaName(String areaId) {
-    return _areaNames[areaId] ?? areaId;
-  }
-
-  Future<void> _syncDisastersToFirestore(List<dynamic> groups) async {
-    final db = FirebaseFirestore.instance;
-    for (var group in groups) {
-      final disasterId = group['disasterId'] as String?;
-      if (disasterId == null) continue;
-
-      final docRef = db.collection('disasters').doc(disasterId);
-      final doc = await docRef.get();
-
-      if (!doc.exists) {
-        // Only add if it doesn't exist
-        await docRef.set({
-          'disasterID': disasterId,
-          'Type': group['Type'] ?? 'Unknown',
-          'severity': group['severity'] ?? 'Medium',
-          'title': group['title'] ?? 'New Disaster',
-          'description': group['description'] ?? '',
-          'affectedAreaIds': group['affectedAreaIds'] ?? [],
-          'Status': group['Status'] ?? 'Active',
-          'updatedAt': group['updatedAt'] != null
-              ? Timestamp.fromDate(DateTime.parse(group['updatedAt']))
-              : FieldValue.serverTimestamp(),
-          'incidentCount': group['incidentCount'] ?? 0,
-          'totalAffected': group['totalAffected'] ?? 0,
-        });
-      }
-    }
-  }
-
-  Future<void> _generateAiSummary(List<QueryDocumentSnapshot> docs) async {
-    if (docs.isEmpty) return;
-
-    final incidents = docs
-        .map((doc) => doc.data() as Map<String, dynamic>)
-        .toList();
-
-    // Avoid redundant calls
-    if (_aiInsightData != null &&
-        incidents.length == _lastAnalyzedIncidents.length) {
-      return;
-    }
-
-    setState(() => _isSummarizing = true);
-
-    try {
-      // Ensure all areaNames are loaded for the current incidents
-      bool needsRecheck = false;
-      for (var inc in incidents) {
-        final aid = inc['areaId'] as String?;
-        if (aid != null && aid.isNotEmpty && !_areaNames.containsKey(aid)) {
-          needsRecheck = true;
-          break;
-        }
-      }
-
-      if (needsRecheck) {
-        await _loadAreaNames();
-      }
-
-      final insightData = await _aiService.summarizeIncidents(
-        incidents,
-        _areaNames,
-      );
-
-      if (mounted) {
-        setState(() {
-          _aiInsightData = insightData;
-          _isSummarizing = false;
-          _lastAnalyzedIncidents = incidents;
-        });
-
-        // Sync to disasters collection
-        if (insightData['groups'] != null) {
-          _syncDisastersToFirestore(insightData['groups']);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isSummarizing = false);
-      }
-    }
   }
 
   @override
@@ -174,7 +50,6 @@ class _CasesPageState extends State<CasesPage> {
                   IconButton(
                     icon: const Icon(Icons.refresh, color: Colors.white),
                     onPressed: () {
-                      _aiInsightData = null; // Reset to force refresh
                       setState(() {});
                     },
                   ),
@@ -289,16 +164,6 @@ class _CasesPageState extends State<CasesPage> {
                         ((doc.data() as Map)['peopleAffected'] as int? ?? 0),
                   );
 
-                  // Trigger automatic AI analysis if not already doing it
-                  if (_areasLoaded &&
-                      !_isSummarizing &&
-                      (_aiInsightData == null ||
-                          allDocs.length != _lastAnalyzedIncidents.length)) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _generateAiSummary(allDocs);
-                    });
-                  }
-
                   return ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
@@ -313,10 +178,6 @@ class _CasesPageState extends State<CasesPage> {
 
                       // Filter Section
                       _buildFilterSection(),
-                      const SizedBox(height: 20),
-
-                      // AI Summary Section
-                      _buildAiSummarySection(),
                       const SizedBox(height: 20),
 
                       const Text(
@@ -366,215 +227,11 @@ class _CasesPageState extends State<CasesPage> {
     );
   }
 
-  Widget _buildAiSummarySection() {
-    if (_isSummarizing) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.blue.withValues(alpha: 0.1)),
-        ),
-        child: const Column(
-          children: [
-            CircularProgressIndicator(strokeWidth: 2),
-            SizedBox(height: 12),
-            Text(
-              'AI is analyzing recent incidents...',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_aiInsightData == null) return const SizedBox.shrink();
-
-    final summary = _aiInsightData!['summary'] ?? '';
-    final groups = _aiInsightData!['groups'] as List? ?? [];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.blue.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.blue.withValues(alpha: 0.1)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.auto_awesome,
-                    size: 18,
-                    color: Color(0xFF1A56DB),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'AI Intelligence Summary',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: Color(0xFF1A56DB),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(summary, style: const TextStyle(fontSize: 13, height: 1.5)),
-            ],
-          ),
-        ),
-        if (groups.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          const Text(
-            'Analyzed Disasters',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 10),
-          ...groups
-              .take(_showAllDisasters ? groups.length : 2)
-              .map((g) => _buildDisasterGroupCard(g as Map<String, dynamic>)),
-          if (groups.length > 2)
-            Center(
-              child: TextButton(
-                onPressed: () {
-                  setState(() {
-                    _showAllDisasters = !_showAllDisasters;
-                  });
-                },
-                child: Text(
-                  _showAllDisasters ? 'Show less' : 'Show all',
-                  style: const TextStyle(
-                    color: Color(0xFF1A56DB),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildDisasterGroupCard(Map<String, dynamic> group) {
-    final areaIds = group['affectedAreaIds'] as List? ?? [];
-    final areaName = areaIds.isNotEmpty
-        ? _getAreaName(areaIds[0])
-        : (group['area'] ?? 'Unknown Area');
-    final severity = group['severity'] ?? 'Medium';
-    final severityColor = _getSeverityColor(severity);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: severityColor.withValues(alpha: 0.08),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.location_on, size: 14, color: severityColor),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    areaName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: severityColor,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    severity,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  group['title'] ?? 'Incident Group',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  group['analysis'] ?? '',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade700,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _miniStat(
-                      Icons.article_outlined,
-                      '${group['incidentCount']} Cases',
-                    ),
-                    const SizedBox(width: 16),
-                    _miniStat(
-                      Icons.people_outline,
-                      '${group['totalAffected']} Affected',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildIncidentCard(QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final category = data['category'] ?? 'General';
     final areaId = data['areaId'] ?? '';
-    final areaName = _getAreaName(areaId);
+    final areaName = areaId.isEmpty ? 'Unknown Area' : 'Area $areaId';
     final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
     final timeStr = timestamp != null
         ? DateFormat('MMM dd, hh:mm a').format(timestamp)
@@ -598,10 +255,10 @@ class _CasesPageState extends State<CasesPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: categoryColor.withValues(alpha: 0.1)),
+        border: Border.all(color: categoryColor.withOpacity(0.1)),
         boxShadow: [
           BoxShadow(
-            color: categoryColor.withValues(alpha: 0.04),
+            color: categoryColor.withOpacity(0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -615,7 +272,7 @@ class _CasesPageState extends State<CasesPage> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: categoryColor.withValues(alpha: 0.1),
+                  color: categoryColor.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -693,9 +350,9 @@ class _CasesPageState extends State<CasesPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
+        border: Border.all(color: color.withOpacity(0.5)),
       ),
       child: Text(
         'Level $severity',
@@ -723,19 +380,6 @@ class _CasesPageState extends State<CasesPage> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _miniStat(IconData icon, String label) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: Colors.grey),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Colors.black54),
-        ),
-      ],
     );
   }
 
@@ -797,10 +441,10 @@ class _CasesPageState extends State<CasesPage> {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.1)),
+        border: Border.all(color: color.withOpacity(0.1)),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.05),
+            color: color.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -814,7 +458,7 @@ class _CasesPageState extends State<CasesPage> {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: Colors.white.withOpacity(0.6),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, size: 14, color: color),
@@ -825,7 +469,7 @@ class _CasesPageState extends State<CasesPage> {
                   title,
                   style: TextStyle(
                     fontSize: 11,
-                    color: color.withValues(alpha: 0.8),
+                    color: color.withOpacity(0.8),
                     fontWeight: FontWeight.bold,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -839,14 +483,14 @@ class _CasesPageState extends State<CasesPage> {
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: color.withValues(alpha: 0.9),
+              color: color.withOpacity(0.9),
             ),
           ),
           Text(
             sub,
             style: TextStyle(
               fontSize: 10,
-              color: color.withValues(alpha: 0.6),
+              color: color.withOpacity(0.6),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1050,18 +694,5 @@ class _CasesPageState extends State<CasesPage> {
         ),
       ],
     );
-  }
-
-  Color _getSeverityColor(String severity) {
-    switch (severity.toLowerCase()) {
-      case 'critical':
-        return Colors.red.shade900;
-      case 'high':
-        return Colors.red.shade700;
-      case 'medium':
-        return Colors.orange.shade700;
-      default:
-        return Colors.green.shade700;
-    }
   }
 }
