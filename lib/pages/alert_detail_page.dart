@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/disaster_model.dart';
 import '../models/shelter_model.dart';
 import '../services/alerts_service.dart';
+import 'safety_route_navigation.dart';
 
 class AlertDetailPage extends StatefulWidget {
   final String disasterId;
@@ -450,19 +450,13 @@ class _Alert_DetailPageState extends State<AlertDetailPage> {
           width: double.infinity,
           height: 52,
           child: ElevatedButton.icon(
-            onPressed: () async {
-              final lat = disaster.center?.latitude;
-              final lng = disaster.center?.longitude;
-              if (lat != null && lng != null) {
-                final url =
-                    'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
-                if (await canLaunchUrl(Uri.parse(url))) {
-                  await launchUrl(
-                    Uri.parse(url),
-                    mode: LaunchMode.externalApplication,
-                  );
-                }
-              }
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SafetyRouteNavigationScreen(),
+                ),
+              );
             },
             icon: const Icon(
               Icons.send_outlined,

@@ -750,29 +750,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              disasters.length,
-              (i) => GestureDetector(
-                onTap: () => _pageCtrl.animateToPage(
-                  i,
-                  duration: const Duration(milliseconds: 400),
-                  curve: Curves.easeInOut,
+          const SizedBox(height: 12),
+          // Draggable Slider
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 4,
+                activeTrackColor: _blue,
+                inactiveTrackColor: const Color(0xFFE5E7EB),
+                thumbColor: _blue,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayColor: _blue.withOpacity(0.12),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+              ),
+              child: Slider(
+                value: _currentAlertPage.toDouble(),
+                min: 0,
+                max: (disasters.length - 1).toDouble().clamp(
+                  0.0,
+                  double.infinity,
                 ),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: i == _currentAlertPage ? 20 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: i == _currentAlertPage
-                        ? _blue
-                        : const Color(0xFFD1D5DB),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
+                divisions: disasters.length > 1 ? disasters.length - 1 : 1,
+                onChanged: (value) {
+                  _pageCtrl.animateToPage(
+                    value.toInt(),
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOut,
+                  );
+                },
               ),
             ),
           ),
@@ -869,7 +875,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             image: NetworkImage(d.imageUrl ?? _fallbackImageUrl(d.category)),
             fit: BoxFit.cover,
             colorFilter: ColorFilter.mode(
-              Colors.black.withOpacity(0.3),
+              Colors.black.withOpacity(0.2), // Lightened for better visibility
               BlendMode.darken,
             ),
           ),
@@ -1007,15 +1013,33 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   String _fallbackImageUrl(String category) {
+    // Using varied IDs for more diversity
+    final randomSuffix = DateTime.now().millisecond % 3;
     switch (category) {
       case 'Flood':
-        return 'https://images.unsplash.com/photo-1547683908-21aa538c716b?q=80&w=800&auto=format&fit=crop';
+        return [
+          'https://images.unsplash.com/photo-1547683908-21aa538c716b?q=80&w=800&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1468413922365-e3766a17da9e?q=80&w=800&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1511055853222-6d35505d9884?q=80&w=800&auto=format&fit=crop',
+        ][randomSuffix];
       case 'Fire':
-        return 'https://images.unsplash.com/photo-1516533075015-a3838414c3ca?q=80&w=800&auto=format&fit=crop';
+        return [
+          'https://images.unsplash.com/photo-1516533075015-a3838414c3ca?q=80&w=800&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1524334228333-0f6db392f8a1?q=80&w=800&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1506755594442-54264846f59d?q=80&w=800&auto=format&fit=crop',
+        ][randomSuffix];
       case 'Earthquake':
-        return 'https://images.unsplash.com/photo-1541093113199-a2e9d264421b?q=80&w=800&auto=format&fit=crop';
+        return [
+          'https://images.unsplash.com/photo-1541093113199-a2e9d264421b?q=80&w=800&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1582213707521-af9c1e21950d?q=80&w=800&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1521747116042-5a810fda9664?q=80&w=800&auto=format&fit=crop',
+        ][randomSuffix];
       case 'Landslide':
-        return 'https://images.unsplash.com/photo-1541183011993-3760443a5099?q=80&w=800&auto=format&fit=crop';
+        return [
+          'https://images.unsplash.com/photo-1541183011993-3760443a5099?q=80&w=800&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1546271876-af6caec1fa95?q=80&w=800&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop',
+        ][randomSuffix];
       default:
         return 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop';
     }
