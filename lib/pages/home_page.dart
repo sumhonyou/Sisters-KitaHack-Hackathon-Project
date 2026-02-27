@@ -4,9 +4,11 @@ import '../models/alert_model.dart';
 import '../models/disaster_model.dart';
 import '../models/shelter_model.dart';
 import '../services/firestore_service.dart';
+import '../services/alerts_controller.dart';
 import 'alert_detail_page.dart';
 import 'profile_page.dart';
 import '../services/notification_service.dart';
+import 'package:provider/provider.dart';
 
 class HomePage extends StatefulWidget {
   final VoidCallback? onNavigateToMap;
@@ -279,6 +281,9 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final alertsController = Provider.of<AlertsController>(context);
+    final homeAlerts = alertsController.getHomeView(_selectedCountry);
+
     return Scaffold(
       backgroundColor: _bgGray,
       body: StreamBuilder<List<DisasterModel>>(
@@ -315,9 +320,7 @@ class _HomePageState extends State<HomePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildAlertsSection(
-                            disasters.isEmpty ? [] : disasters,
-                          ),
+                          _buildAlertsSection(homeAlerts),
                           _buildDemoTools(),
                           const SizedBox(height: 8),
                           _buildSafetyCheckIn(),
@@ -906,26 +909,13 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Color _alertSeverityColor(String severity) {
-    switch (severity) {
-      case 'high':
-        return const Color(0xFFEF4444);
-      case 'medium':
-        return const Color(0xFFF59E0B);
-      case 'low':
-        return const Color(0xFF22C55E);
-      default:
-        return Colors.grey;
-    }
+  Color _alertSeverityColor(int severity) {
+    if (severity >= 5) return const Color(0xFFEF4444);
+    if (severity >= 3) return const Color(0xFFF59E0B);
+    return const Color(0xFF22C55E);
   }
 
-  Widget _buildAlertsSection(List<DisasterModel> disasters) {
-    // Show the first 4 active disasters from the database
-    final alertsToShow = disasters
-        .where((d) => d.status == 'active')
-        .take(4)
-        .toList();
-
+  Widget _buildAlertsSection(List<AlertModel> alerts) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -961,7 +951,7 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
-        if (alertsToShow.isEmpty)
+        if (alerts.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             child: Text(
@@ -970,39 +960,14 @@ class _HomePageState extends State<HomePage> {
             ),
           )
         else
-          // Alert list cards from Database
-          ...alertsToShow.map((disaster) => _buildDisasterCard(disaster)),
+          ...alerts.map((alert) => _buildAlertCard(alert)),
       ],
     );
   }
 
-  Widget _buildDisasterCard(DisasterModel disaster) {
+  Widget _buildAlertCard(AlertModel alert) {
     return GestureDetector(
       onTap: () {
-        // Find corresponding mock alert or create a temp one for navigation
-        final alert = AlertModel(
-          id: disaster.id,
-          title: disaster.title,
-          description: disaster.description,
-          type: disaster.type,
-          severity: disaster.severity,
-          shortAdvice: disaster.description.length > 40
-              ? '${disaster.description.substring(0, 37)}...'
-              : disaster.description,
-          locationName: 'Local Area',
-          distanceKm: 1.5,
-          issuedAt: disaster.createdAt,
-          lat: disaster.center?.latitude ?? 3.1390,
-          lng: disaster.center?.longitude ?? 101.6869,
-          recommendedActions: const [
-            'Avoid the affected area if possible',
-            'Stay tuned to local news for updates',
-            'Follow instructions from emergency personnel',
-          ],
-          nearbyShelters: const [],
-          officialSource: 'Civil Defense Department',
-        );
-
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => AlertDetailPage(alert: alert)),
@@ -1029,14 +994,12 @@ class _HomePageState extends State<HomePage> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: _alertTypeIconColor(
-                  disaster.type,
-                ).withValues(alpha: 0.1),
+                color: _alertTypeIconColor(alert.type).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                _alertTypeIcon(disaster.type),
-                color: _alertTypeIconColor(disaster.type),
+                _alertTypeIcon(alert.type),
+                color: _alertTypeIconColor(alert.type),
                 size: 22,
               ),
             ),
@@ -1050,7 +1013,7 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Expanded(
                         child: Text(
-                          disaster.title,
+                          alert.title,
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -1064,14 +1027,11 @@ class _HomePageState extends State<HomePage> {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: _alertSeverityColor(disaster.severity),
+                          color: _alertSeverityColor(alert.severity),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          disaster.severity.isNotEmpty
-                              ? disaster.severity[0].toUpperCase() +
-                                    disaster.severity.substring(1)
-                              : 'Alert',
+                          'Level ${alert.severity}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -1083,7 +1043,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '1.5 km away  •  ${_timeAgo(disaster.createdAt)}',
+                    '${alert.district ?? alert.state ?? alert.country}  •  ${_timeAgo(alert.createdAt)}',
                     style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF9CA3AF),
@@ -1091,7 +1051,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    disaster.description,
+                    alert.description,
                     style: const TextStyle(
                       fontSize: 13,
                       color: Color(0xFF6B7280),
@@ -1102,7 +1062,6 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
-            const SizedBox(width: 4),
             Icon(Icons.chevron_right, color: Colors.grey.shade300, size: 20),
           ],
         ),

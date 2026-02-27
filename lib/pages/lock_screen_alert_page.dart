@@ -17,8 +17,21 @@ class _LockScreenAlertPageState extends State<LockScreenAlertPage>
     with SingleTickerProviderStateMixin {
   late bool _expanded;
 
-  // Use first high-severity mock alert
-  AlertModel get _alert => mockAlerts.firstWhere((a) => a.severity == 'high');
+  // Demo alert for simulation
+  AlertModel get _alert => AlertModel(
+    id: 'demo-alert',
+    title: 'Flash Flood Warning',
+    description:
+        'Heavy rainfall has caused flash flooding in your area. Seek higher ground.',
+    type: 'flood',
+    severity: 4,
+    status: 'active',
+    country: 'Malaysia',
+    district: 'Kuala Lumpur',
+    keywords: ['flood', 'rain', 'danger'],
+    createdAt: DateTime.now(),
+    updatedAt: DateTime.now(),
+  );
 
   late AnimationController _expandController;
   late Animation<double> _expandAnimation;
@@ -292,7 +305,7 @@ class AnimatedBuilder extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${alert.title} – ${alert.severity[0].toUpperCase()}${alert.severity.substring(1)}',
+                        '${alert.title} – ${alert.severity >= 4 ? 'High' : (alert.severity >= 2 ? 'Medium' : 'Low')}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
@@ -317,7 +330,7 @@ class AnimatedBuilder extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  '${_shortAdvice(alert)}. Tap for more details.',
+                  '${alert.description}. Tap for more details.',
                   style: const TextStyle(
                     color: Color(0xFFD1D5DB),
                     fontSize: 13,
@@ -346,7 +359,7 @@ class AnimatedBuilder extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
                   child: Text(
-                    'Heavy rainfall has caused flash flooding in ${alert.locationName} and surrounding areas. Water levels are rising rapidly.',
+                    'Heavy rainfall has caused flash flooding in ${alert.district ?? 'your area'} and surrounding areas. Water levels are rising rapidly.',
                     style: const TextStyle(
                       color: Color(0xFFD1D5DB),
                       fontSize: 13,
@@ -366,7 +379,7 @@ class AnimatedBuilder extends StatelessWidget {
                           const Text('📍', style: TextStyle(fontSize: 13)),
                           const SizedBox(width: 6),
                           Text(
-                            '${alert.distanceKm} km from your location',
+                            '1.5 km from your location',
                             style: const TextStyle(
                               color: Color(0xFF9CA3AF),
                               fontSize: 13,
@@ -380,7 +393,7 @@ class AnimatedBuilder extends StatelessWidget {
                           const Text('🚨', style: TextStyle(fontSize: 13)),
                           const SizedBox(width: 6),
                           Text(
-                            'Severity: ${alert.severity[0].toUpperCase()}${alert.severity.substring(1)}',
+                            'Severity: ${alert.severity >= 4 ? 'High' : (alert.severity >= 2 ? 'Medium' : 'Low')}',
                             style: const TextStyle(
                               color: Color(0xFF9CA3AF),
                               fontSize: 13,
@@ -413,8 +426,8 @@ class AnimatedBuilder extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          alert.recommendedActions.isNotEmpty
-                              ? '${alert.recommendedActions[0]}. Avoid low-lying areas and flooded roads.'
+                          alert.severity >= 4
+                              ? '${alert.description}. Avoid low-lying areas and flooded roads.'
                               : 'Follow official safety guidelines.',
                           style: const TextStyle(
                             color: Color(0xFFFCA5A5),
@@ -478,9 +491,5 @@ class AnimatedBuilder extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _shortAdvice(AlertModel a) {
-    return 'Avoid low-lying areas. Seek higher ground immediately';
   }
 }

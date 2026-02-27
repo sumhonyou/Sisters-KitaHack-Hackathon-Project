@@ -6,26 +6,19 @@ class AlertDetailPage extends StatelessWidget {
   final AlertModel alert;
   const AlertDetailPage({super.key, required this.alert});
 
-  Color _severityColor(String severity) {
-    switch (severity) {
-      case 'high':
-        return const Color(0xFFEF4444);
-      case 'medium':
-        return const Color(0xFFF59E0B);
-      case 'low':
-        return const Color(0xFF22C55E);
-      default:
-        return Colors.grey;
-    }
+  Color _severityColor(int severity) {
+    if (severity >= 4) return const Color(0xFFEF4444); // Critical/High
+    if (severity >= 2) return const Color(0xFFF59E0B); // Medium
+    return const Color(0xFF22C55E); // Low
   }
 
   @override
   Widget build(BuildContext context) {
     final timeFormat = DateFormat('h:mm a');
-    final issuedStr = 'Today, ${timeFormat.format(alert.issuedAt)}';
-    final updatedStr = alert.updatedAt != null
-        ? timeFormat.format(alert.updatedAt!)
-        : null;
+    final issuedStr = 'Today, ${timeFormat.format(alert.createdAt)}';
+    final updatedStr = timeFormat.format(alert.updatedAt);
+
+    final locationName = alert.district ?? alert.state ?? alert.country;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
@@ -136,9 +129,9 @@ class AlertDetailPage extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              child: Text(
-                                '${alert.distanceKm} km',
-                                style: const TextStyle(
+                              child: const Text(
+                                '1.5 km',
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   color: Color(0xFF374151),
@@ -178,8 +171,11 @@ class AlertDetailPage extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  alert.severity[0].toUpperCase() +
-                                      alert.severity.substring(1),
+                                  alert.severity >= 4
+                                      ? 'High'
+                                      : (alert.severity >= 2
+                                            ? 'Medium'
+                                            : 'Low'),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
@@ -199,7 +195,7 @@ class AlertDetailPage extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                alert.locationName,
+                                locationName,
                                 style: const TextStyle(
                                   fontSize: 13,
                                   color: Color(0xFF6B7280),
@@ -209,7 +205,7 @@ class AlertDetailPage extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Issued: $issuedStr${updatedStr != null ? '  •  Updated: $updatedStr' : ''}',
+                            'Issued: $issuedStr  •  Updated: $updatedStr',
                             style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFF9CA3AF),
@@ -258,38 +254,22 @@ class AlertDetailPage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        ...alert.recommendedActions.asMap().entries.map(
-                          (entry) => _ActionItem(
-                            index: entry.key + 1,
-                            text: entry.value,
-                          ),
+                        const _ActionItem(
+                          index: 1,
+                          text: 'Stay indoors and away from windows',
+                        ),
+                        const _ActionItem(
+                          index: 2,
+                          text: 'Follow instructions from local authorities',
+                        ),
+                        const _ActionItem(
+                          index: 3,
+                          text: 'Keep your emergency kit ready',
                         ),
                       ],
                     ),
 
                     const SizedBox(height: 12),
-
-                    // ── Safe shelters nearby ──
-                    if (alert.nearbyShelters.isNotEmpty)
-                      _SectionCard(
-                        children: [
-                          const Text(
-                            'Safe shelters nearby',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ...alert.nearbyShelters.map(
-                            (s) => _ShelterRow(shelter: s),
-                          ),
-                        ],
-                      ),
-
-                    if (alert.nearbyShelters.isNotEmpty)
-                      const SizedBox(height: 12),
 
                     // ── Official source ──
                     Padding(
@@ -304,16 +284,16 @@ class AlertDetailPage extends StatelessWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: RichText(
-                              text: TextSpan(
+                              text: const TextSpan(
                                 text: 'Official source: ',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   color: Color(0xFF9CA3AF),
                                 ),
                                 children: [
                                   TextSpan(
-                                    text: alert.officialSource,
-                                    style: const TextStyle(
+                                    text: 'Civil Defense Department',
+                                    style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       color: Color(0xFF6B7280),
                                     ),
@@ -333,40 +313,6 @@ class AlertDetailPage extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Column(
                         children: [
-                          // Navigate to shelter
-                          if (alert.nearbyShelters.isNotEmpty)
-                            SizedBox(
-                              width: double.infinity,
-                              height: 52,
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Navigating to nearest shelter...',
-                                      ),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.navigation, size: 20),
-                                label: const Text(
-                                  'Navigate to shelter',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1A56DB),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  elevation: 0,
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 12),
                           // Share + I'm safe
                           Row(
                             children: [
@@ -539,67 +485,6 @@ class _ActionItem extends StatelessWidget {
                   height: 1.4,
                 ),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ShelterRow extends StatelessWidget {
-  final ShelterInfo shelter;
-  const _ShelterRow({required this.shelter});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFF22C55E).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.location_on,
-              color: Color(0xFF22C55E),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  shelter.name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF111827),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  shelter.address,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF9CA3AF),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            '${shelter.distanceKm} km',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF6B7280),
             ),
           ),
         ],

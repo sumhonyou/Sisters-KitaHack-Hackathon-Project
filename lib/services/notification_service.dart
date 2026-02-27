@@ -97,29 +97,18 @@ class NotificationService {
       final String? title = data['title'];
       final String? body = data['body'];
 
-      // Try to find the alert in mock data or construct a temporary model
-      AlertModel alert;
-      try {
-        alert = mockAlerts.firstWhere((a) => a.id == alertId);
-      } catch (_) {
-        // Construct from payload if it's a real database alert
-        alert = AlertModel(
-          id: alertId,
-          title: title ?? 'Emergency Alert',
-          description: body ?? '',
-          type: 'warning',
-          severity: 'high',
-          shortAdvice: body ?? '',
-          locationName: 'Local Area',
-          distanceKm: 0.0,
-          issuedAt: DateTime.now(),
-          lat: 0.0,
-          lng: 0.0,
-          recommendedActions: const [],
-          nearbyShelters: const [],
-          officialSource: 'CityGuard',
-        );
-      }
+      final AlertModel alert = AlertModel(
+        id: alertId,
+        title: title ?? 'Emergency Alert',
+        description: body ?? '',
+        type: 'warning',
+        severity: 4,
+        status: 'active',
+        country: 'Malaysia',
+        keywords: const ['emergency'],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
 
       navigatorKey.currentState?.push(
         MaterialPageRoute(builder: (_) => AlertDetailPage(alert: alert)),

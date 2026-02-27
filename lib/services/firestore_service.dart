@@ -1305,4 +1305,77 @@ class FirestoreService {
 
     await batch.commit();
   }
+
+  Future<void> seedAlertsIfEmpty() async {
+    final snap = await _db.collection('alerts').limit(1).get();
+    if (snap.docs.isNotEmpty) return;
+
+    debugPrint('FirestoreService: Seeding alerts...');
+    final now = DateTime.now();
+    final alerts = [
+      {
+        'title': 'Flash Flood Warning',
+        'description':
+            'Heavy rainfall causing water levels to rise rapidly in low-lying areas of Klang Valley.',
+        'type': 'flood',
+        'severity': 5,
+        'status': 'active',
+        'country': 'Malaysia',
+        'state': 'Selangor',
+        'district': 'Petaling',
+        'keywords': ['flood', 'rain', 'klang'],
+        'createdAt': Timestamp.fromDate(
+          now.subtract(const Duration(minutes: 15)),
+        ),
+        'updatedAt': Timestamp.fromDate(now),
+        'expiresAt': Timestamp.fromDate(now.add(const Duration(hours: 4))),
+      },
+      {
+        'title': 'Wildfire Alert',
+        'description':
+            'A wildfire has been detected in the forested area near Bukit Kiara.',
+        'type': 'fire',
+        'severity': 4,
+        'status': 'active',
+        'country': 'Malaysia',
+        'state': 'Kuala Lumpur',
+        'keywords': ['fire', 'smoke', 'kiara'],
+        'createdAt': Timestamp.fromDate(now.subtract(const Duration(hours: 1))),
+        'updatedAt': Timestamp.fromDate(now),
+      },
+      {
+        'title': 'Minor Earthquake',
+        'description':
+            'A minor earthquake recorded off the coast of Sabah. No tsunami threat.',
+        'type': 'earthquake',
+        'severity': 2,
+        'status': 'active',
+        'country': 'Malaysia',
+        'state': 'Sabah',
+        'keywords': ['earthquake', 'sabah'],
+        'createdAt': Timestamp.fromDate(now.subtract(const Duration(hours: 5))),
+        'updatedAt': Timestamp.fromDate(now),
+      },
+      {
+        'title': 'Tsunami Watch',
+        'description':
+            'A tsunami watch issued for coastal areas of Sabah following an earthquake.',
+        'type': 'tsunami',
+        'severity': 5,
+        'status': 'active',
+        'country': 'Malaysia',
+        'state': 'Sabah',
+        'keywords': ['tsunami', 'sea', 'sabah'],
+        'createdAt': Timestamp.fromDate(now.subtract(const Duration(hours: 2))),
+        'updatedAt': Timestamp.fromDate(now),
+        'expiresAt': Timestamp.fromDate(now.add(const Duration(hours: 6))),
+      },
+    ];
+
+    final batch = _db.batch();
+    for (var a in alerts) {
+      batch.set(_db.collection('alerts').doc(), a);
+    }
+    await batch.commit();
+  }
 }

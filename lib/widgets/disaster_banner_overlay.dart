@@ -137,16 +137,16 @@ class _DisasterBannerOverlayState extends State<DisasterBannerOverlay>
           title: activeHighDisaster?.title ?? 'Emergency Alert',
           description: activeHighDisaster?.description ?? '',
           type: activeHighDisaster?.type ?? 'warning',
-          severity: activeHighDisaster?.severity ?? 'high',
-          shortAdvice: activeHighDisaster?.description ?? '',
-          locationName: 'Local Area',
-          distanceKm: 1.5,
-          issuedAt: activeHighDisaster?.createdAt ?? DateTime.now(),
-          lat: activeHighDisaster?.center?.latitude ?? 0,
-          lng: activeHighDisaster?.center?.longitude ?? 0,
-          recommendedActions: const [],
-          nearbyShelters: const [],
-          officialSource: 'CityGuard',
+          severity:
+              (activeHighDisaster?.severity == 'critical' ||
+                  activeHighDisaster?.severity == 'high')
+              ? 4
+              : 2,
+          status: activeHighDisaster?.status ?? 'active',
+          country: 'Malaysia',
+          keywords: const ['emergency'],
+          createdAt: activeHighDisaster?.createdAt ?? DateTime.now(),
+          updatedAt: activeHighDisaster?.createdAt ?? DateTime.now(),
         );
 
         return Stack(
@@ -264,7 +264,7 @@ class _BannerCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${alert.title} – ${alert.severity[0].toUpperCase()}${alert.severity.substring(1)}',
+                        '${alert.title} – ${alert.severity >= 4 ? 'High' : (alert.severity >= 2 ? 'Medium' : 'Low')}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
@@ -303,9 +303,9 @@ class _BannerCard extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  alert.shortAdvice.length > 60
+                  alert.description.length > 60
                       ? 'Avoid low-lying areas. Seek higher ground immediately.'
-                      : alert.shortAdvice,
+                      : alert.description,
                   style: const TextStyle(
                     color: Color(0xFFD1D5DB),
                     fontSize: 13,
