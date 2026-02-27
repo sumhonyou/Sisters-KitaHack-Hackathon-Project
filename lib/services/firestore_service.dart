@@ -148,15 +148,20 @@ class FirestoreService {
   }
 
   Stream<List<DisasterModel>> disastersStream({String? status}) {
-    Query query = _db
-        .collection('disasters')
-        .orderBy('createdAt', descending: true);
-    if (status != null && status.isNotEmpty) {
-      query = query.where('status', isEqualTo: status);
-    }
-    return query.snapshots().map(
-      (snap) => snap.docs.map(DisasterModel.fromFirestore).toList(),
-    );
+    return _db.collection('disasters').snapshots().map((snap) {
+      final disasters = snap.docs
+          .map(DisasterModel.fromFirestore)
+          .where(
+            (d) =>
+                status == null ||
+                status.isEmpty ||
+                d.status == status.toLowerCase(),
+          )
+          .toList();
+      // Sort by updatedAt descending
+      disasters.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      return disasters;
+    });
   }
 
   Stream<List<ShelterModel>> sheltersStream({String? status}) {
