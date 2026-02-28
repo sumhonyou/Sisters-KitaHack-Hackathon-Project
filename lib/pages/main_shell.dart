@@ -25,7 +25,7 @@ class _MainShellState extends State<MainShell> {
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          HomePage(onNavigateToMap: () => _navigateTo(1)),
+          HomePage(onNavigateToMap: () => _navigateTo(2)),
           const AlertsPage(),
           const MapPage(),
           const CommunityPage(),

@@ -748,17 +748,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: SliderTheme(
                 data: SliderTheme.of(context).copyWith(
-                  trackHeight: 4,
+                  trackHeight: 8,
                   activeTrackColor: _blue,
-                  inactiveTrackColor: const Color(0xFFE5E7EB),
+                  inactiveTrackColor: const Color(0xFFD1D5DB),
                   thumbColor: _blue,
                   thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: 6,
+                    enabledThumbRadius: 10,
+                    elevation: 4,
                   ),
                   overlayColor: _blue.withOpacity(0.12),
                   overlayShape: const RoundSliderOverlayShape(
-                    overlayRadius: 16,
+                    overlayRadius: 20,
                   ),
+                  trackShape: const RoundedRectSliderTrackShape(),
                 ),
                 child: Slider(
                   value: _currentAlertPage.toDouble().clamp(
@@ -1725,6 +1727,21 @@ class _LongPressSosButtonState extends State<_LongPressSosButton>
       onTapDown: (_) => _startHold(),
       onTapUp: (_) => _cancelHold(),
       onTapCancel: () => _cancelHold(),
+      onTap: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              '⚠️ Please hold the SOS button for 3 seconds to trigger rescue.',
+            ),
+            backgroundColor: const Color(0xFFEF4444),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      },
       child: Column(
         children: [
           Stack(
@@ -1780,13 +1797,14 @@ class _LongPressSosButtonState extends State<_LongPressSosButton>
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'SOS',
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF374151),
+              fontWeight: _isHolding ? FontWeight.bold : FontWeight.w500,
+              color: _isHolding ? color : const Color(0xFF374151),
             ),
+            child: Text(_isHolding ? 'Hold for 3s...' : 'SOS'),
           ),
         ],
       ),
@@ -1804,18 +1822,18 @@ class _BorderProgressPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = color
-      ..strokeWidth = 4
+      ..strokeWidth = 6
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     final backgroundPaint = Paint()
       ..color = color.withValues(alpha: 0.1)
-      ..strokeWidth = 4
+      ..strokeWidth = 6
       ..style = PaintingStyle.stroke;
 
     final rect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(6, 6, size.width - 12, size.height - 12),
-      const Radius.circular(21), // Slightly larger radius for the outer border
+      Rect.fromLTWH(4, 4, size.width - 8, size.height - 8),
+      const Radius.circular(22), // Slightly larger radius for the outer border
     );
 
     canvas.drawRRect(rect, backgroundPaint);

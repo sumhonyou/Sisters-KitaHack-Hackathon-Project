@@ -13,6 +13,16 @@ class AuthService {
   // Stream of auth changes
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  // Fetch user profile from Firestore
+  Future<Map<String, dynamic>?> getUserProfile(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      return doc.data();
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Sign in with email and password
   Future<UserCredential> signInWithEmailAndPassword({
     required String email,

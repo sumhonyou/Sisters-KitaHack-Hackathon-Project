@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/community_post_model.dart';
 import '../services/firestore_service.dart';
+import '../services/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CommunityPage extends StatefulWidget {
   const CommunityPage({super.key});
@@ -14,8 +16,12 @@ class CommunityPage extends StatefulWidget {
 class _CommunityPageState extends State<CommunityPage>
     with SingleTickerProviderStateMixin {
   final FirestoreService _fs = FirestoreService();
+  final AuthService _auth = AuthService();
   late TabController _tabController;
   final TextEditingController _composeCtrl = TextEditingController();
+
+  Map<String, dynamic>? _currentUserProfile;
+  bool _loadingUser = true;
 
   static const _tabs = ['Trending', 'Following', 'Nearby'];
   static const _categories = ['trending', 'following', 'nearby'];
@@ -25,6 +31,22 @@ class _CommunityPageState extends State<CommunityPage>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _fs.seedSampleDataIfEmpty();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final profile = await _auth.getUserProfile(user.uid);
+      if (mounted) {
+        setState(() {
+          _currentUserProfile = profile;
+          _loadingUser = false;
+        });
+      }
+    } else {
+      if (mounted) setState(() => _loadingUser = false);
+    }
   }
 
   @override
@@ -613,20 +635,48 @@ class _CommunityPageState extends State<CommunityPage>
                 final title = titleCtrl.text.trim();
                 final msg = msgCtrl.text.trim();
                 if (title.isEmpty || msg.isEmpty) return;
+
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please log in to post.')),
+                  );
+                  return;
+                }
+
+                // Extract hashtags for tags
+                List<String> tags = [selectedType.toLowerCase()];
+                final hashtagRegex = RegExp(r'#(\w+)');
+                final matches = hashtagRegex.allMatches("$title $msg");
+                for (final m in matches) {
+                  final tag = m.group(1)?.toLowerCase();
+                  if (tag != null && !tags.contains(tag)) tags.add(tag);
+                }
+
+                final profile = _currentUserProfile;
+                final authorName = profile?['fullName'] ?? 'User';
+                final authorHandle =
+                    '@${authorName.toLowerCase().replaceAll(' ', '_')}';
+
                 final post = CommunityPost(
                   postId: '',
-                  authorUid: 'demo-user-001',
-                  authorName: 'You',
-                  authorHandle: '@you',
-                  authorAvatarColor: '#1A56DB',
+                  authorUid: user.uid,
+                  authorName: authorName,
+                  authorHandle: authorHandle,
+                  authorAvatarColor: profile?['authorAvatarColor'] ?? '#1A56DB',
                   type: selectedType,
                   category: selectedCategory,
-                  areaId: 'downtown',
+                  areaId: profile?['homeAreaId'] ?? 'unknown_area',
                   title: title,
                   message: msg,
-                  tags: [selectedType.toLowerCase()],
+                  tags: tags,
                   createdAt: DateTime.now(),
+                  likeCount: 0,
+                  repostCount: 0,
+                  viewCount: 0,
+                  isLikedByMe: false,
                 );
+
                 await _fs.addPost(post);
                 if (mounted) Navigator.pop(context);
               },
@@ -673,9 +723,11 @@ class _CommunityPageState extends State<CommunityPage>
                             color: Color(0xFF111827),
                           ),
                         ),
-                        const Text(
-                          'Downtown District · 234 members',
-                          style: TextStyle(
+                        Text(
+                          _loadingUser
+                              ? 'Locating District...'
+                              : '${_currentUserProfile?['homeAreaId'] ?? 'Nearby'} District · Community Feed',
+                          style: const TextStyle(
                             color: Color(0xFF6B7280),
                             fontSize: 13,
                           ),

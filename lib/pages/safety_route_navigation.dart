@@ -404,9 +404,9 @@ class _SafetyRouteNavigationScreenState
   }
 
   Future<List<Shelter>> _rankWithGemini(List<Shelter> candidates) async {
-    // Use gemini-2.0-flash (fast, non-thinking model) instead of gemini-2.5-flash (thinking model, very slow)
+    // Use gemini-1.5-flash (fast, stable model)
     final model = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       apiKey: _geminiApiKey,
       systemInstruction: Content.system(
         "You are an AI assistant helping a disaster management app rank safe shelters. Output strictly in JSON array format: [{\"id\": \"SH-001\", \"reason\": \"Short reason here\"}]",
@@ -451,7 +451,7 @@ class _SafetyRouteNavigationScreenState
 
     try {
       debugPrint(
-        "[Gemini] Calling Gemini API (gemini-2.0-flash) for ranking...",
+        "[Gemini] Calling Gemini API (gemini-1.5-flash) for ranking...",
       );
       debugPrint(
         "[Gemini] Sending ${candidates.length} candidates for evaluation",

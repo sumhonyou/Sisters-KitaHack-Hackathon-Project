@@ -8,7 +8,7 @@ A real-time disaster management and response application designed to connect cit
 KitaHack enables rapid reporting of incidents, visualizes disaster trends, provides safety check-in mechanisms, and automates disaster identification using Artificial Intelligence.
 
 ## 🤖 Google AI Technology (Gemini)
-The system leverages the **Google Gemini Pro** model (specifically `gemini-2.5-flash` integration) to act as a **Disaster Management Analyst**.
+The system leverages the **Google Gemini Pro** model (specifically `gemini-1.5-flash` integration) to act as a **Disaster Management Analyst**.
 
 ### Key AI Features:
 - **Intelligent Incident Grouping**: Automatically clusters multiple individual reports into a single "Disaster" event on the map.
