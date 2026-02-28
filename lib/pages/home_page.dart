@@ -743,37 +743,41 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(height: 12),
-          // Draggable Slider
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 4,
-                activeTrackColor: _blue,
-                inactiveTrackColor: const Color(0xFFE5E7EB),
-                thumbColor: _blue,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                overlayColor: _blue.withOpacity(0.12),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-              ),
-              child: Slider(
-                value: _currentAlertPage.toDouble(),
-                min: 0,
-                max: (disasters.length - 1).toDouble().clamp(
-                  0.0,
-                  double.infinity,
+          if (disasters.length > 1)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 4,
+                  activeTrackColor: _blue,
+                  inactiveTrackColor: const Color(0xFFE5E7EB),
+                  thumbColor: _blue,
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 6,
+                  ),
+                  overlayColor: _blue.withOpacity(0.12),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 16,
+                  ),
                 ),
-                divisions: disasters.length > 1 ? disasters.length - 1 : 1,
-                onChanged: (value) {
-                  _pageCtrl.animateToPage(
-                    value.toInt(),
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOut,
-                  );
-                },
+                child: Slider(
+                  value: _currentAlertPage.toDouble().clamp(
+                    0.0,
+                    (disasters.length - 1).toDouble(),
+                  ),
+                  min: 0,
+                  max: (disasters.length - 1).toDouble(),
+                  divisions: disasters.length - 1,
+                  onChanged: (value) {
+                    _pageCtrl.animateToPage(
+                      value.toInt(),
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
+                  },
+                ),
               ),
             ),
-          ),
           // Location + status row for current card
           if (disasters.isNotEmpty && _currentAlertPage < disasters.length)
             Padding(
