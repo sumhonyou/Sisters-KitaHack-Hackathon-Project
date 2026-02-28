@@ -323,10 +323,6 @@ class _AlertsPageState extends State<AlertsPage> {
         iconData = Icons.waves;
         color = Colors.teal;
         break;
-      case 'Landslide':
-        iconData = Icons.landscape;
-        color = Colors.green;
-        break;
       default:
         iconData = Icons.warning_amber_rounded;
         color = Colors.grey;

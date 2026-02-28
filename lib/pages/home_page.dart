@@ -158,8 +158,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         return Icons.cyclone;
       case 'Tsunami':
         return Icons.waves;
-      case 'Landslide':
-        return Icons.landscape;
       default:
         return Icons.warning_amber_rounded;
     }
@@ -1083,15 +1081,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           'https://images.unsplash.com/photo-1545048702-793e24bb1d1f?q=80&w=800&auto=format&fit=crop', // Flooded coast
           'https://images.unsplash.com/photo-1594191344933-22879010355f?q=80&w=800&auto=format&fit=crop', // Stormy sea
           'https://images.unsplash.com/photo-1533062604082-7798383e5860?q=80&w=800&auto=format&fit=crop', // Giant surge
-        ];
-        return images[index % images.length];
-      case 'Landslide':
-        final images = [
-          'https://images.unsplash.com/photo-1541183011993-3760443a5099?q=80&w=800&auto=format&fit=crop', // Muddy hill
-          'https://images.unsplash.com/photo-1546271876-af6caec1fa95?q=80&w=800&auto=format&fit=crop', // Rockfall
-          'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop', // Mountain cliff
-          'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?q=80&w=800&auto=format&fit=crop', // Dense forest slopes
-          'https://images.unsplash.com/photo-1541183011303-adfa2ca954a0?q=80&w=800&auto=format&fit=crop', // Eroded soil
         ];
         return images[index % images.length];
       default:

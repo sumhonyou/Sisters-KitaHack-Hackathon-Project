@@ -102,12 +102,6 @@ class DisasterModel {
         titleL.contains('wave')) {
       return 'Tsunami';
     }
-    if (t.contains('landslide') ||
-        t.contains('mudslide') ||
-        titleL.contains('landslide') ||
-        titleL.contains('mudslide')) {
-      return 'Landslide';
-    }
 
     return 'Other';
   }
