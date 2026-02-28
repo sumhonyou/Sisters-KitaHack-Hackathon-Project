@@ -31,10 +31,31 @@ class DisasterModel {
     final d = doc.data() as Map<String, dynamic>;
     final updatedAt =
         (d['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+
+    // Handle numeric severity (e.g., "8") or string labels (e.g., "High")
+    String rawSeverity = (d['severity'] ?? 'Medium').toString();
+    String mappedSeverity;
+    final intValue = int.tryParse(rawSeverity);
+    if (intValue != null) {
+      if (intValue >= 7) {
+        mappedSeverity = 'High';
+      } else if (intValue >= 4) {
+        mappedSeverity = 'Medium';
+      } else {
+        mappedSeverity = 'Low';
+      }
+    } else {
+      // Capitalize first letter if it's already a string label
+      mappedSeverity = rawSeverity.isNotEmpty
+          ? rawSeverity[0].toUpperCase() +
+                rawSeverity.substring(1).toLowerCase()
+          : 'Medium';
+    }
+
     return DisasterModel(
       id: doc.id,
       type: d['Type'] ?? d['type'] ?? 'Other',
-      severity: d['severity'] ?? 'Medium',
+      severity: mappedSeverity,
       title: d['title'] ?? 'Untitled Disaster',
       description: d['description'] ?? '',
       affectedAreaIds: List<String>.from(d['affectedAreaIds'] ?? []),

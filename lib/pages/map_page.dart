@@ -768,8 +768,9 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   List<ReportedCase> _filterAndSort(List<ReportedCase> cases) {
     var list = cases.where((c) {
       if (_selectedSeverity != 'All') {
-        if (c.severity.name.toLowerCase() != _selectedSeverity.toLowerCase())
+        if (c.severity.name.toLowerCase() != _selectedSeverity.toLowerCase()) {
           return false;
+        }
       }
 
       if (_selectedType != 'All' &&

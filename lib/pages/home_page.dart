@@ -239,13 +239,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildAlertsSection(
-                            disasters
-                                .where(
-                                  (d) => d.severity.toLowerCase() == 'high',
-                                )
-                                .toList(),
-                          ),
+                          _buildAlertsSection(activeDisasters),
                           const SizedBox(height: 16),
                           _buildSafetyCheckIn(),
                           const SizedBox(height: 16),
