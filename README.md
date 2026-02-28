@@ -1,11 +1,9 @@
-# KitaHack Disaster Management System
-
-A real-time disaster management and response application designed to connect citizens, rescuers, and authorities. Built for the KitaHack Hackathon.
+# City Guard - Disaster Management System
 
 ---
 
 ## 🚀 System Overview
-KitaHack enables rapid reporting of incidents, visualizes disaster trends, provides safety check-in mechanisms, and automates disaster identification using Artificial Intelligence.
+City Guard enables rapid reporting of incidents, visualizes disaster trends, provides safety check-in mechanisms, and automates disaster identification using Artificial Intelligence.
 
 # City Guard — Real-Time Disaster Management & Safety Guidance System
 
