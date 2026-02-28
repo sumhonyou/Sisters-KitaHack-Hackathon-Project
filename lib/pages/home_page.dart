@@ -120,7 +120,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _initNotifications() async {
     await _notificationService.init();
-    _triggerSystemNotifications();
   }
 
   void _triggerSystemNotifications() {
@@ -349,7 +348,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   // ── Notifications Panel ───────────────────────────────────────────────────
   void _showNotificationsPanel() {
-    _triggerSystemNotifications();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

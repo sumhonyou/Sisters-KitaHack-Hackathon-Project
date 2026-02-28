@@ -8,7 +8,7 @@
     <application
         android:label="kitahack"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon">
+        android:icon="@mipmap/ic_launcher">
         <uses-library
             android:name="org.apache.http.legacy"
             android:required="false" />
