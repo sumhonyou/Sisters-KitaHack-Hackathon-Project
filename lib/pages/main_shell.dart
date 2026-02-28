@@ -3,6 +3,7 @@ import 'home_page.dart';
 import 'map_page.dart';
 import 'community_page.dart';
 import 'cases_page.dart';
+import 'alerts_page.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -25,6 +26,7 @@ class _MainShellState extends State<MainShell> {
         index: _currentIndex,
         children: [
           HomePage(onNavigateToMap: () => _navigateTo(1)),
+          const AlertsPage(),
           const MapPage(),
           const CommunityPage(),
           const CasesPage(),
@@ -51,6 +53,11 @@ class _MainShellState extends State<MainShell> {
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
             label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications_outlined),
+            activeIcon: Icon(Icons.notifications),
+            label: 'Alerts',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.map_outlined),
