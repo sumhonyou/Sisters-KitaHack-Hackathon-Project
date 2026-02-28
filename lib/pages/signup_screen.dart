@@ -131,6 +131,22 @@ class _SignupScreenState extends State<SignupScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Image.asset(
+                        'assets/images/shelters/app_icon.png',
+                        height: 80,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Your Safety, Our Priority.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF2575FC),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                       const Text(
                         'Create Account',
                         style: TextStyle(
@@ -139,7 +155,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           color: Colors.black87,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       const Text(
                         'Join CityGuard today',
                         style: TextStyle(color: Colors.grey),
