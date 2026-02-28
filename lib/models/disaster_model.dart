@@ -69,10 +69,46 @@ class DisasterModel {
 
   String get category {
     final t = type.toLowerCase();
-    if (t.contains('flood')) return 'Flood';
-    if (t.contains('fire')) return 'Fire';
-    if (t.contains('earthquake')) return 'Earthquake';
-    if (t.contains('landslide')) return 'Landslide';
+    final titleL = title.toLowerCase();
+
+    // Prioritize specific categories
+    if (t.contains('flood') || titleL.contains('flood')) {
+      return 'Flood';
+    }
+    if (t.contains('fire') || titleL.contains('fire')) {
+      return 'Fire';
+    }
+    if (t.contains('storm') ||
+        t.contains('rain') ||
+        t.contains('wind') ||
+        t.contains('hurricane') ||
+        t.contains('cyclone') ||
+        t.contains('typhoon') ||
+        t.contains('monsoon') ||
+        titleL.contains('storm') ||
+        titleL.contains('rain') ||
+        titleL.contains('wind')) {
+      return 'Storm';
+    }
+    if (t.contains('earthquake') ||
+        t.contains('quake') ||
+        titleL.contains('earthquake') ||
+        titleL.contains('quake')) {
+      return 'Earthquake';
+    }
+    if (t.contains('tsunami') ||
+        t.contains('wave') ||
+        titleL.contains('tsunami') ||
+        titleL.contains('wave')) {
+      return 'Tsunami';
+    }
+    if (t.contains('landslide') ||
+        t.contains('mudslide') ||
+        titleL.contains('landslide') ||
+        titleL.contains('mudslide')) {
+      return 'Landslide';
+    }
+
     return 'Other';
   }
 

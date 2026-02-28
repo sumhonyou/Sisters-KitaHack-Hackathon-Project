@@ -146,22 +146,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  IconData _disasterIcon(String type) {
-    switch (type.toLowerCase()) {
-      case 'flood':
-        return Icons.water;
-      case 'earthquake':
-        return Icons.crisis_alert;
-      case 'fire':
+  IconData _disasterIcon(String category) {
+    switch (category) {
+      case 'Flood':
+        return Icons.water_drop;
+      case 'Fire':
         return Icons.local_fire_department;
-      case 'storm':
-        return Icons.thunderstorm;
-      case 'chemical':
-        return Icons.science;
-      case 'landslide':
-        return Icons.terrain;
+      case 'Earthquake':
+        return Icons.vibration;
+      case 'Storm':
+        return Icons.cyclone;
+      case 'Tsunami':
+        return Icons.waves;
+      case 'Landslide':
+        return Icons.landscape;
       default:
-        return Icons.warning_amber;
+        return Icons.warning_amber_rounded;
     }
   }
 
@@ -756,7 +756,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     enabledThumbRadius: 10,
                     elevation: 4,
                   ),
-                  overlayColor: _blue.withOpacity(0.12),
+                  overlayColor: _blue.withValues(alpha: 0.12),
                   overlayShape: const RoundSliderOverlayShape(
                     overlayRadius: 20,
                   ),
@@ -870,16 +870,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           image: DecorationImage(
-            image: NetworkImage(d.imageUrl ?? _fallbackImageUrl(d.category)),
+            image: NetworkImage(
+              d.imageUrl ?? _fallbackImageUrl(d.category, d.id),
+            ),
             fit: BoxFit.cover,
             colorFilter: ColorFilter.mode(
-              Colors.black.withOpacity(0.2), // Lightened for better visibility
+              Colors.black.withValues(
+                alpha: 0.2,
+              ), // Lightened for better visibility
               BlendMode.darken,
             ),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -894,7 +898,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.7),
+                  ],
                 ),
               ),
             ),
@@ -903,7 +910,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               right: -20,
               bottom: -20,
               child: Icon(
-                _disasterIcon(d.type),
+                _disasterIcon(d.category),
                 size: 120,
                 color: Colors.white.withValues(alpha: 0.08),
               ),
@@ -1010,34 +1017,83 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  String _fallbackImageUrl(String category) {
-    // Using varied IDs for more diversity
-    final randomSuffix = DateTime.now().millisecond % 3;
+  String _fallbackImageUrl(String category, String id) {
+    // Generate a stable random index based on the ID string
+    int hash = 0;
+    for (int i = 0; i < id.length; i++) {
+      hash = id.codeUnitAt(i) + ((hash << 5) - hash);
+    }
+
+    final int index = hash.abs();
+
     switch (category) {
       case 'Flood':
-        return [
-          'https://images.unsplash.com/photo-1547683908-21aa538c716b?q=80&w=800&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1468413922365-e3766a17da9e?q=80&w=800&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1511055853222-6d35505d9884?q=80&w=800&auto=format&fit=crop',
-        ][randomSuffix];
+        final images = [
+          'https://images.unsplash.com/photo-1547683908-21aa538c716b?q=80&w=800&auto=format&fit=crop', // River flood
+          'https://images.unsplash.com/photo-1468413922365-e3766a17da9e?q=80&w=800&auto=format&fit=crop', // Deep water
+          'https://images.unsplash.com/photo-1511055853222-6d35505d9884?q=80&w=800&auto=format&fit=crop', // Flooded street
+          'https://images.unsplash.com/photo-1545048702-793e24bb1d1f?q=80&w=800&auto=format&fit=crop', // Aerial flood
+          'https://images.unsplash.com/photo-1590098455532-613d9406593a?q=80&w=800&auto=format&fit=crop', // Submerged car
+          'https://images.unsplash.com/photo-1574492405051-248981452441?q=80&w=800&auto=format&fit=crop', // Heavy rain on road
+          'https://images.unsplash.com/photo-1605723511530-dc1e98829871?q=80&w=800&auto=format&fit=crop', // Water rescue
+          'https://images.unsplash.com/photo-1579483017726-16e76e5d85e7?q=80&w=800&auto=format&fit=crop', // Residential flooding
+        ];
+        return images[index % images.length];
       case 'Fire':
-        return [
-          'https://images.unsplash.com/photo-1516533075015-a3838414c3ca?q=80&w=800&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1524334228333-0f6db392f8a1?q=80&w=800&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1506755594442-54264846f59d?q=80&w=800&auto=format&fit=crop',
-        ][randomSuffix];
+        final images = [
+          'https://images.unsplash.com/photo-1516533075015-a3838414c3ca?q=80&w=800&auto=format&fit=crop', // Forest fire
+          'https://images.unsplash.com/photo-1524334228333-0f6db392f8a1?q=80&w=800&auto=format&fit=crop', // Building fire
+          'https://images.unsplash.com/photo-1506755594442-54264846f59d?q=80&w=800&auto=format&fit=crop', // Intense flames
+          'https://images.unsplash.com/photo-1580516091765-36177215f16d?q=80&w=800&auto=format&fit=crop', // Night fire
+          'https://images.unsplash.com/photo-1599427303058-f173243f65b6?q=80&w=800&auto=format&fit=crop', // Smoke
+          'https://images.unsplash.com/photo-1501618669935-18b6ecb13d6d?q=80&w=800&auto=format&fit=crop', // Firefighter
+          'https://images.unsplash.com/photo-1544033339-da5462cfdd31?q=80&w=800&auto=format&fit=crop', // Forest smoke
+          'https://images.unsplash.com/photo-1621252328704-ccf5be02ed3e?q=80&w=800&auto=format&fit=crop', // Ember
+        ];
+        return images[index % images.length];
+      case 'Storm':
+        final images = [
+          'https://images.unsplash.com/photo-1562155847-c05f7386b204?q=80&w=800&auto=format&fit=crop', // Lightning
+          'https://images.unsplash.com/photo-1534274988757-a28bf1f539cf?q=80&w=800&auto=format&fit=crop', // Dark clouds
+          'https://images.unsplash.com/photo-1511283919504-ca05ee700099?q=80&w=800&auto=format&fit=crop', // Heavy rain
+          'https://images.unsplash.com/photo-1504639725590-34d0984388bd?q=80&w=800&auto=format&fit=crop', // Stormy sky
+          'https://images.unsplash.com/photo-1533062604082-7798383e5860?q=80&w=800&auto=format&fit=crop', // Hurricane-like
+          'https://images.unsplash.com/photo-1516912481808-3b043c1aad95?q=80&w=800&auto=format&fit=crop', // Rain on window
+          'https://images.unsplash.com/photo-1428592953211-077101b2021b?q=80&w=800&auto=format&fit=crop', // Dramatic clouds
+          'https://images.unsplash.com/photo-1463171359979-aa440628885c?q=80&w=800&auto=format&fit=crop', // Wet street
+        ];
+        return images[index % images.length];
       case 'Earthquake':
-        return [
-          'https://images.unsplash.com/photo-1541093113199-a2e9d264421b?q=80&w=800&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1582213707521-af9c1e21950d?q=80&w=800&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1521747116042-5a810fda9664?q=80&w=800&auto=format&fit=crop',
-        ][randomSuffix];
+        final images = [
+          'https://images.unsplash.com/photo-1541093113199-a2e9d264421b?q=80&w=800&auto=format&fit=crop', // Rubble
+          'https://images.unsplash.com/photo-1582213707521-af9c1e21950d?q=80&w=800&auto=format&fit=crop', // Cracked road
+          'https://images.unsplash.com/photo-1521747116042-5a810fda9664?q=80&w=800&auto=format&fit=crop', // Debris
+          'https://images.unsplash.com/photo-1454496522488-7a8e488e8606?q=80&w=800&auto=format&fit=crop', // Mountains
+          'https://images.unsplash.com/photo-1578351006275-100207bf1aa3?q=80&w=800&auto=format&fit=crop', // City damage
+          'https://images.unsplash.com/photo-1585822765324-ee545524316c?q=80&w=800&auto=format&fit=crop', // Destruction
+          'https://images.unsplash.com/photo-1621252179027-94459d278660?q=80&w=800&auto=format&fit=crop', // Cracked earth
+        ];
+        return images[index % images.length];
+      case 'Tsunami':
+        final images = [
+          'https://images.unsplash.com/photo-1524231757912-21f4fe3a7200?q=80&w=800&auto=format&fit=crop', // Big wave
+          'https://images.unsplash.com/photo-1502675135487-e75f0c0907ca?q=80&w=800&auto=format&fit=crop', // Coastline
+          'https://images.unsplash.com/photo-1518837697219-45260031d48b?q=80&w=800&auto=format&fit=crop', // Deep ocean
+          'https://images.unsplash.com/photo-1455588722283-9366453f637b?q=80&w=800&auto=format&fit=crop', // Powerful water
+          'https://images.unsplash.com/photo-1545048702-793e24bb1d1f?q=80&w=800&auto=format&fit=crop', // Flooded coast
+          'https://images.unsplash.com/photo-1594191344933-22879010355f?q=80&w=800&auto=format&fit=crop', // Stormy sea
+          'https://images.unsplash.com/photo-1533062604082-7798383e5860?q=80&w=800&auto=format&fit=crop', // Giant surge
+        ];
+        return images[index % images.length];
       case 'Landslide':
-        return [
-          'https://images.unsplash.com/photo-1541183011993-3760443a5099?q=80&w=800&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1546271876-af6caec1fa95?q=80&w=800&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop',
-        ][randomSuffix];
+        final images = [
+          'https://images.unsplash.com/photo-1541183011993-3760443a5099?q=80&w=800&auto=format&fit=crop', // Muddy hill
+          'https://images.unsplash.com/photo-1546271876-af6caec1fa95?q=80&w=800&auto=format&fit=crop', // Rockfall
+          'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop', // Mountain cliff
+          'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?q=80&w=800&auto=format&fit=crop', // Dense forest slopes
+          'https://images.unsplash.com/photo-1541183011303-adfa2ca954a0?q=80&w=800&auto=format&fit=crop', // Eroded soil
+        ];
+        return images[index % images.length];
       default:
         return 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop';
     }
