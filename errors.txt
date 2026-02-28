@@ -1,0 +1,28 @@
+﻿Analyzing map_page.dart...
+
+  error - map_page.dart:332:11 - The method '_buildAiSummarySection' isn't defined for the type '_MapPageState'. Try correcting the name to the name of an existing method, or defining a method named '_buildAiSummarySection'. - undefined_method
+  error - map_page.dart:1310:9 - Undefined name '_isSummarizing'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - map_page.dart:1332:9 - Undefined name '_aiInsightData'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - map_page.dart:1334:21 - Undefined name '_aiInsightData'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - map_page.dart:1335:20 - Undefined name '_aiInsightData'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - map_page.dart:1386:23 - Undefined name '_showAllDisasters'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - map_page.dart:1392:21 - The method 'setState' isn't defined for the type 'CaseCardCompact'. Try correcting the name to the name of an existing method, or defining a method named 'setState'. - undefined_method
+  error - map_page.dart:1393:23 - Undefined name '_showAllDisasters'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - map_page.dart:1393:44 - Undefined name '_showAllDisasters'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - map_page.dart:1397:21 - Undefined name '_showAllDisasters'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - map_page.dart:1414:11 - The method '_getAreaName' isn't defined for the type 'CaseCardCompact'. Try correcting the name to the name of an existing method, or defining a method named '_getAreaName'. - undefined_method
+warning - map_page.dart:75:10 - The declaration '_getAreaName' isn't referenced. Try removing the declaration of '_getAreaName'. - unused_element
+warning - map_page.dart:1309:10 - The declaration '_buildAiSummarySection' isn't referenced. Try removing the declaration of '_buildAiSummarySection'. - unused_element
+   info - map_page.dart:40:8 - The private field _showAllDisasters could be 'final'. Try making the field 'final'. - prefer_final_fields
+   info - map_page.dart:767:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - map_page.dart:1173:39 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - map_page.dart:1175:20 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - map_page.dart:1236:42 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - map_page.dart:1302:22 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - map_page.dart:1317:49 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - map_page.dart:1345:34 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - map_page.dart:1347:53 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - map_page.dart:1426:33 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - map_page.dart:1438:36 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+
+24 issues found.
